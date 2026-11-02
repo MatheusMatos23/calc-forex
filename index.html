@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E0F13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Forex Split">
+<title>Forex Split · 利润分配</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C8102E'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23F2C14E' font-family='sans-serif' font-weight='700'%3E%E5%88%A9%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E0F13; --card:#171920; --card2:#1E212A; --line:#2A2E39;
+    --text:#F3F4F7; --muted:#9097A6; --red:#E0323C; --red2:#B3141F;
+    --gold:#F2C14E; --green:#2FBF71; --danger:#FF5A5F;
+    --r:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:Inter,"Noto Sans SC",system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  body{min-height:100vh;padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 84px) env(safe-area-inset-left)}
+  .wrap{max-width:1040px;margin:0 auto;padding:16px}
+  .cn{font-family:"Noto Sans SC",sans-serif;color:var(--muted);font-weight:500}
+  header{display:flex;align-items:center;gap:12px;padding:8px 2px 18px}
+  .logo{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--red),var(--red2));
+    display:grid;place-items:center;font:700 24px "Noto Sans SC";color:var(--gold);box-shadow:0 6px 20px #e0323c40}
+  header h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.2px}
+  header p{margin:2px 0 0;font-size:12.5px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:860px){.grid{grid-template-columns:1fr 1.15fr;align-items:start}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .card h2{margin:0 0 14px;font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .card h2 .cn{font-size:12px}
+  label.f{display:block;font-size:12.5px;color:var(--muted);margin:0 0 6px;font-weight:600}
+  .field{margin-bottom:14px}
+  .inp{display:flex;align-items:center;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:0 14px;transition:border .15s}
+  .inp:focus-within{border-color:var(--gold)}
+  .inp span{color:var(--muted);font-weight:600;font-size:15px;margin-right:8px;white-space:nowrap}
+  .inp input,.inp select{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);
+    font:700 22px Inter,sans-serif;padding:13px 0}
+  .inp select{font-size:15px;font-weight:600;appearance:none;cursor:pointer}
+  .inp select option{background:var(--card2)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .seg{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--muted);font:600 13px Inter;padding:9px 4px;border-radius:9px;cursor:pointer}
+  .seg button.on{background:var(--gold);color:#1a1405}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .hero{background:linear-gradient(140deg,#2A0D10 0%,#1A1012 45%,#171920 100%);border-color:#4a1d22;position:relative;overflow:hidden}
+  .hero:after{content:"利";position:absolute;right:-6px;bottom:-34px;font:700 150px "Noto Sans SC";color:#ffffff07;pointer-events:none}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+  .kpi{background:#ffffff08;border:1px solid #ffffff10;border-radius:14px;padding:12px}
+  .kpi small{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:4px}
+  .kpi b{font-size:20px;font-weight:800;letter-spacing:-.3px}
+  .kpi.big{grid-column:1/-1}
+  .kpi.big b{font-size:30px;color:var(--gold)}
+  .pos{color:var(--green)!important}.neg{color:var(--danger)!important}
+  .bar{display:flex;height:10px;border-radius:99px;overflow:hidden;margin:16px 0 4px;background:var(--card2)}
+  .bar i{display:block;height:100%}
+  .share{border-top:1px solid var(--line);padding:14px 0 4px}
+  .share:first-of-type{border-top:0}
+  .sh{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .sh .nm{display:flex;align-items:center;gap:10px;min-width:0}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .sh .nm b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pill{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:99px;background:#ffffff10;color:var(--muted);white-space:nowrap}
+  .amt{text-align:right;font-weight:800;font-size:18px;white-space:nowrap}
+  .amt small{display:block;font-size:11.5px;color:var(--muted);font-weight:600}
+  .subs{margin:10px 0 0 20px;display:grid;gap:6px}
+  .sub{display:flex;justify-content:space-between;font-size:13.5px;background:var(--card2);border-radius:10px;padding:8px 12px}
+  .sub span{color:var(--muted)} .sub b{font-weight:700}
+  .btn{border:0;border-radius:14px;font:700 14.5px Inter;padding:14px 16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  .btn.gold{background:var(--gold);color:#1a1405}
+  .btn.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+  .btn.red{background:transparent;color:var(--danger);border:1px solid #ff5a5f55}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+  .warn{background:#ff5a5f14;border:1px solid #ff5a5f40;color:#ffb3b5;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:12px}
+  .ok{background:#2fbf7114;border:1px solid #2fbf7140;color:#9ee6bd}
+  /* config */
+  .rule{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+  .rule .top{display:grid;grid-template-columns:1fr 110px 38px;gap:8px;align-items:center}
+  .rule input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--text);font:600 14px Inter;padding:10px;outline:0}
+  .rule input:focus{border-color:var(--gold)}
+  .pctwrap{position:relative}.pctwrap input{padding-right:26px;text-align:right}
+  .pctwrap:after{content:"%";position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700;font-size:13px}
+  .x{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:18px;cursor:pointer}
+  .rule .people{margin-top:8px}
+  .rule .people small{display:block;font-size:11.5px;color:var(--muted);margin:0 0 5px 2px}
+  .sum{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;padding:12px 14px;border-radius:12px;margin:6px 0 4px}
+  /* tabs */
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;background:#0E0F13ee;backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    display:flex;justify-content:center;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:5}
+  nav.tabs button{flex:1;max-width:180px;background:transparent;border:0;color:var(--muted);font:600 11.5px Inter;padding:6px 4px;border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+  nav.tabs button svg{width:22px;height:22px}
+  nav.tabs button.on{color:var(--gold);background:#f2c14e12}
+  .view{display:none}.view.on{display:block}
+  .hist{display:grid;gap:8px}
+  .hi{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+  .hi small{color:var(--muted);font-size:11.5px;display:block}
+  .hi b{font-size:15px}
+  .empty{color:var(--muted);text-align:center;padding:30px 10px;font-size:14px}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--gold);color:#1a1405;font-weight:700;font-size:14px;
+    padding:10px 18px;border-radius:99px;opacity:0;transition:.25s;pointer-events:none;z-index:10}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .modal{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;justify-content:center;z-index:20;padding:16px}
+  .modal.on{display:flex}
+  .modal .card{width:100%;max-width:520px}
+  .modal textarea{width:100%;min-height:220px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:13px/1.5 ui-monospace,Menlo,monospace}
+  @media(min-width:860px){.modal{align-items:center}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">利</div>
+    <div>
+      <h1>Forex Split</h1>
+      <p class="cn">外汇利润分配计算器 · Divisão de lucros</p>
+    </div>
+  </header>
+
+  <!-- CALCULAR -->
+  <section class="view on" id="v-calc">
+    <div class="grid">
+      <div class="card">
+        <h2>Operação <span class="cn">交易</span></h2>
+        <div class="field">
+          <label class="f">Moeda <span class="cn">货币</span></label>
+          <div class="seg" id="curSeg">
+            <button data-c="USD">US$</button><button data-c="BRL">R$</button><button data-c="CNY">¥</button><button data-c="USDT">USDT</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="f">Capital operado <span class="cn">本金</span></label>
+          <div class="inp"><span class="sym"></span><input id="capital" inputmode="numeric" autocomplete="off" placeholder="0,00"></div>
+        </div>
+        <div class="field">
+          <label class="f">Lucro da operação <span class="cn">利润</span></label>
+          <div class="inp"><span class="sym"></span><input id="lucro" inputmode="numeric" autocomplete="off" placeholder="0,00"></div>
+          <div class="seg" style="margin-top:8px" id="sinalSeg">
+            <button data-s="1">Lucro ▲</button><button data-s="-1">Prejuízo ▼</button>
+          </div>
+        </div>
+        <div class="field" id="fxField">
+          <label class="f">Cotação p/ Real (opcional) <span class="cn">汇率</span></label>
+          <div class="inp"><span id="fxLbl">1 US$ =</span><input id="fx" inputmode="decimal" autocomplete="off" placeholder="ex: 5,40"></div>
+          <div class="hint">Preencha para ver cada parte também em R$.</div>
+        </div>
+      </div>
+
+      <div class="card hero">
+        <h2>Resultado <span class="cn">结果</span></h2>
+        <div class="kpis">
+          <div class="kpi big"><small>Lucro a dividir · 待分配利润</small><b id="kLucro">—</b></div>
+          <div class="kpi"><small>Retorno sobre capital</small><b id="kRet">—</b></div>
+          <div class="kpi"><small>Capital + lucro</small><b id="kTot">—</b></div>
+        </div>
+        <div class="bar" id="bar"></div>
+        <div id="shares"></div>
+        <div id="calcWarn"></div>
+        <div class="btns">
+          <button class="btn ghost" id="bCopy">📋 Copiar resumo</button>
+          <button class="btn gold" id="bSave">＋ Salvar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONFIG -->
+  <section class="view" id="v-cfg">
+    <div class="card" style="max-width:640px;margin:0 auto">
+      <h2>Regras de divisão <span class="cn">分配规则</span></h2>
+      <p class="hint" style="margin:-6px 0 14px">Cada linha recebe uma % do <b>lucro total</b>. Se tiver mais de um nome, a parte é dividida igualmente entre eles. O total precisa dar 100%.</p>
+      <div id="rules"></div>
+      <div class="sum" id="sumBox"></div>
+      <div class="btns">
+        <button class="btn ghost" id="bAdd">＋ Adicionar parte</button>
+        <button class="btn red" id="bReset">Restaurar padrão</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTÓRICO -->
+  <section class="view" id="v-hist">
+    <div class="card" style="max-width:640px;margin:0 auto">
+      <h2>Histórico <span class="cn">记录</span></h2>
+      <p class="hint" style="margin:-6px 0 14px">Fica salvo só neste aparelho/navegador.</p>
+      <div class="hist" id="hist"></div>
+      <div class="btns" style="grid-template-columns:1fr"><button class="btn red" id="bClear">Limpar histórico</button></div>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs">
+  <button data-v="calc" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="2.5" width="16" height="19" rx="3"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>Calcular</button>
+  <button data-v="cfg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Divisão</button>
+  <button data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>Histórico</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<div class="modal" id="copyModal"><div class="card">
+  <h2>Resumo <span class="cn">摘要</span></h2>
+  <p class="hint" style="margin-top:-6px">Selecione e copie o texto abaixo.</p>
+  <textarea id="copyText" readonly></textarea>
+  <div class="btns" style="grid-template-columns:1fr"><button class="btn gold" id="bCloseModal">Fechar</button></div>
+</div></div>
+
+<script>
+(function(){
+  const COLORS=['#E0323C','#F2C14E','#4C8DFF','#2FBF71','#B678FF','#FF8A3D','#22C3C3','#FF6FA8'];
+  const DEFAULT_RULES=[
+    {label:'Trader (chinês)', pct:60, people:['Trader (chinês)']},
+    {label:'Investidor', pct:20, people:['Investidor']},
+    {label:'Sócios', pct:20, people:['Sócio 1','Sócio 2','Sócio 3']}
+  ];
+  const SYM={USD:'US$',BRL:'R$',CNY:'¥',USDT:'USDT'};
+  const store={
+    get(k,d){try{const v=localStorage.getItem('fxsplit_'+k);return v?JSON.parse(v):d}catch(e){return d}},
+    set(k,v){try{localStorage.setItem('fxsplit_'+k,JSON.stringify(v))}catch(e){}}
+  };
+  let state={
+    cur:store.get('cur','USD'),
+    capital:store.get('capital',0), lucro:store.get('lucro',0), sinal:store.get('sinal',1),
+    fx:store.get('fx',''),
+    rules:store.get('rules',null)||JSON.parse(JSON.stringify(DEFAULT_RULES)),
+    hist:store.get('hist',[])
+  };
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+  function fmt(cents,cur){
+    const v=cents/100;
+    const n=v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return (cur==='USDT'? n+' USDT' : SYM[cur]+' '+n);
+  }
+  function fmtBRL(cents){return 'R$ '+(cents/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function pctFmt(p){return (Math.round(p*100)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%'}
+  function parseDec(s){if(s==null)return NaN;s=String(s).trim().replace(/\s/g,'');if(!s)return NaN;
+    if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');return parseFloat(s)}
+
+  // máscara de dinheiro: dígitos -> centavos
+  function bindMoney(el,key){
+    const show=()=>{el.value=state[key]?(state[key]/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):''};
+    el.addEventListener('input',()=>{const d=el.value.replace(/\D/g,'').slice(0,15);state[key]=d?parseInt(d,10):0;show();store.set(key,state[key]);render()});
+    show();
+  }
+
+  // Divide 'total' centavos pelas regras; arredonda distribuindo sobras para que a soma bata exatamente.
+  function split(total){
+    const items=[];
+    state.rules.forEach((r,ri)=>{
+      const ppl=r.people.filter(p=>p.trim());const n=Math.max(1,ppl.length);
+      const names=ppl.length?ppl:[r.label||'Parte'];
+      names.forEach((nm,pi)=>items.push({ri,pi,name:nm,exact:total*(Number(r.pct)||0)/100/n}));
+    });
+    let alloc=items.map(it=>({...it,c:Math.floor(it.exact)}));
+    const sumPct=state.rules.reduce((a,r)=>a+(Number(r.pct)||0),0);
+    const target=Math.abs(sumPct-100)<1e-9?total:alloc.reduce((a,b)=>a+b.c,0);
+    let rem=target-alloc.reduce((a,b)=>a+b.c,0);
+    const order=alloc.map((a,i)=>[a.exact-a.c,i]).sort((x,y)=>y[0]-x[0]);
+    for(let k=0;rem>0&&k<order.length;k++,rem--)alloc[order[k][1]].c++;
+    return alloc;
+  }
+
+  function render(){
+    const cur=state.cur;
+    $$('.sym').forEach(s=>s.textContent=SYM[cur]);
+    $$('#curSeg button').forEach(b=>b.classList.toggle('on',b.dataset.c===cur));
+    $$('#sinalSeg button').forEach(b=>b.classList.toggle('on',+b.dataset.s===state.sinal));
+    $('#fxField').style.display=cur==='BRL'?'none':'';
+    $('#fxLbl').textContent='1 '+SYM[cur]+' =';
+    const cap=state.capital, luc=state.lucro*state.sinal;
+    const fx=parseDec(state.fx); const hasFx=cur!=='BRL'&&fx>0;
+    const kl=$('#kLucro');
+    kl.textContent=state.lucro?fmt(luc,cur):'—';
+    kl.className=luc<0?'neg':'';
+    $('#kRet').textContent=cap&&state.lucro?pctFmt(luc/cap*100):'—';
+    $('#kRet').className=luc<0?'neg':(luc>0?'pos':'');
+    $('#kTot').textContent=cap?fmt(cap+luc,cur):'—';
+
+    const sumPct=state.rules.reduce((a,r)=>a+(Number(r.pct)||0),0);
+    const warn=[];
+    if(Math.abs(sumPct-100)>0.001)warn.push('As porcentagens somam '+pctFmt(sumPct)+' (devem somar 100%). Ajuste na aba <b>Divisão</b>.');
+    if(luc<0)warn.push('Operação com prejuízo: não há lucro a dividir.');
+    $('#calcWarn').innerHTML=warn.map(w=>'<div class="warn">'+w+'</div>').join('');
+
+    const base=luc>0?luc:0;
+    const alloc=split(base);
+    $('#bar').innerHTML=state.rules.map((r,i)=>'<i style="width:'+Math.max(0,r.pct)/Math.max(sumPct,100)*100+'%;background:'+COLORS[i%COLORS.length]+'"></i>').join('');
+    $('#shares').innerHTML=state.rules.map((r,ri)=>{
+      const mine=alloc.filter(a=>a.ri===ri); const tot=mine.reduce((a,b)=>a+b.c,0);
+      const ppl=r.people.filter(p=>p.trim());
+      const brl=hasFx?'<small>≈ '+fmtBRL(Math.round(tot*fx))+'</small>':'';
+      let subs='';
+      if(ppl.length>1){
+        subs='<div class="subs">'+mine.map(m=>'<div class="sub"><span>'+esc(m.name)+' · '+pctFmt(r.pct/ppl.length)+'</span><b>'+fmt(m.c,cur)+(hasFx?' <span style="font-weight:500">≈ '+fmtBRL(Math.round(m.c*fx))+'</span>':'')+'</b></div>').join('')+'</div>';
+      }
+      const title=ppl.length===1&&r.label!==ppl[0]?esc(r.label)+' <span class="cn" style="font-size:12px">'+esc(ppl[0])+'</span>':esc(r.label||'Parte');
+      return '<div class="share"><div class="sh"><div class="nm"><span class="dot" style="background:'+COLORS[ri%COLORS.length]+'"></span><b>'+title+'</b><span class="pill">'+pctFmt(r.pct)+(ppl.length>1?' ÷ '+ppl.length:'')+'</span></div><div class="amt">'+fmt(tot,cur)+brl+'</div></div>'+subs+'</div>';
+    }).join('');
+  }
+  function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+  function summary(){
+    const cur=state.cur, luc=state.lucro*state.sinal, base=luc>0?luc:0, fx=parseDec(state.fx), hasFx=cur!=='BRL'&&fx>0;
+    const alloc=split(base);
+    const d=new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+    let t='📊 FOREX · 利润分配 — '+d+'\n';
+    t+='Capital: '+fmt(state.capital,cur)+'\nLucro: '+fmt(luc,cur)+(state.capital?' ('+pctFmt(luc/state.capital*100)+')':'')+'\n';
+    if(hasFx)t+='Cotação: 1 '+SYM[cur]+' = R$ '+fx.toLocaleString('pt-BR')+'\n';
+    t+='────────────\n';
+    state.rules.forEach((r,ri)=>{
+      const mine=alloc.filter(a=>a.ri===ri); const tot=mine.reduce((a,b)=>a+b.c,0); const ppl=r.people.filter(p=>p.trim());
+      t+='• '+r.label+' ('+pctFmt(r.pct)+'): '+fmt(tot,cur)+(hasFx?' ≈ '+fmtBRL(Math.round(tot*fx)):'')+'\n';
+      if(ppl.length>1)mine.forEach(m=>t+='   – '+m.name+': '+fmt(m.c,cur)+(hasFx?' ≈ '+fmtBRL(Math.round(m.c*fx)):'')+'\n');
+    });
+    return t.trim();
+  }
+  function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),1800)}
+
+  // ---- config ----
+  function renderRules(){
+    $('#rules').innerHTML=state.rules.map((r,i)=>
+      '<div class="rule" data-i="'+i+'" style="border-left:4px solid '+COLORS[i%COLORS.length]+'">'+
+      '<div class="top"><input data-k="label" value="'+esc(r.label)+'" placeholder="Nome da parte">'+
+      '<div class="pctwrap"><input data-k="pct" inputmode="decimal" value="'+String(r.pct).replace('.',',')+'"></div>'+
+      '<button class="x" data-del="'+i+'" title="Remover">×</button></div>'+
+      '<div class="people"><small>Pessoas (separe por vírgula — divide igualmente)</small>'+
+      '<input data-k="people" value="'+esc(r.people.join(', '))+'" placeholder="ex: João, Maria, Pedro"></div></div>').join('');
+    renderSum();
+  }
+  function renderSum(){
+    const s=state.rules.reduce((a,r)=>a+(Number(r.pct)||0),0); const ok=Math.abs(s-100)<0.001;
+    const b=$('#sumBox'); b.className='sum '+(ok?'ok':'warn'); b.innerHTML='<span>Total</span><span>'+pctFmt(s)+(ok?' ✓':' — precisa ser 100%')+'</span>';
+  }
+  $('#rules').addEventListener('input',e=>{
+    const el=e.target, i=+el.closest('.rule').dataset.i, k=el.dataset.k; if(!k)return;
+    if(k==='pct'){const v=parseDec(el.value);state.rules[i].pct=isNaN(v)?0:v}
+    else if(k==='people'){state.rules[i].people=el.value.split(',').map(s=>s.trim()).filter(Boolean)}
+    else state.rules[i][k]=el.value;
+    store.set('rules',state.rules); renderSum(); render();
+  });
+  $('#rules').addEventListener('click',e=>{const d=e.target.dataset.del;if(d==null)return;
+    if(state.rules.length<=1){toast('Precisa ter pelo menos uma parte');return}
+    state.rules.splice(+d,1);store.set('rules',state.rules);renderRules();render()});
+  $('#bAdd').onclick=()=>{state.rules.push({label:'Nova parte',pct:0,people:[]});store.set('rules',state.rules);renderRules();render()};
+  let resetArm=0;
+  $('#bReset').onclick=e=>{
+    if(Date.now()-resetArm>2500){resetArm=Date.now();e.target.textContent='Toque de novo p/ confirmar';setTimeout(()=>e.target.textContent='Restaurar padrão',2500);return}
+    state.rules=JSON.parse(JSON.stringify(DEFAULT_RULES));store.set('rules',state.rules);renderRules();render();e.target.textContent='Restaurar padrão';toast('Padrão restaurado: 60 / 20 / 20÷3')};
+
+  // ---- histórico ----
+  function renderHist(){
+    const h=state.hist;
+    $('#hist').innerHTML=h.length?h.map((x,i)=>'<div class="hi"><div><small>'+x.date+'</small><b class="'+(x.lucro<0?'neg':'pos')+'">'+fmt(x.lucro,x.cur)+'</b><small>Capital '+fmt(x.capital,x.cur)+'</small></div><button class="btn ghost" style="padding:10px 12px" data-load="'+i+'">Abrir</button></div>').join(''):'<div class="empty">Nenhuma operação salva ainda.</div>';
+  }
+  $('#hist').addEventListener('click',e=>{const i=e.target.dataset.load;if(i==null)return;const x=state.hist[+i];
+    state.cur=x.cur;state.capital=x.capital;state.lucro=Math.abs(x.lucro);state.sinal=x.lucro<0?-1:1;state.fx=x.fx||'';
+    if(x.rules)state.rules=JSON.parse(JSON.stringify(x.rules));
+    ['cur','capital','lucro','sinal','fx','rules'].forEach(k=>store.set(k,state[k]));
+    $('#fx').value=state.fx;bindVals();renderRules();render();go('calc')});
+  $('#bSave').onclick=()=>{
+    if(!state.lucro){toast('Informe o lucro primeiro');return}
+    state.hist.unshift({date:new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),cur:state.cur,capital:state.capital,lucro:state.lucro*state.sinal,fx:state.fx,rules:state.rules});
+    state.hist=state.hist.slice(0,50);store.set('hist',state.hist);renderHist();toast('Operação salva ✓')};
+  let clearArm=0;
+  $('#bClear').onclick=e=>{
+    if(Date.now()-clearArm>2500){clearArm=Date.now();e.target.textContent='Toque de novo p/ confirmar';setTimeout(()=>e.target.textContent='Limpar histórico',2500);return}
+    state.hist=[];store.set('hist',[]);renderHist();e.target.textContent='Limpar histórico'};
+
+  // ---- copiar ----
+  $('#bCopy').onclick=async()=>{
+    const t=summary();
+    try{await navigator.clipboard.writeText(t);toast('Resumo copiado ✓')}
+    catch(e){$('#copyText').value=t;$('#copyModal').classList.add('on');setTimeout(()=>$('#copyText').select(),50)}
+  };
+  $('#bCloseModal').onclick=()=>$('#copyModal').classList.remove('on');
+
+  // ---- navegação ----
+  function go(v){$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));$$('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));window.scrollTo(0,0)}
+  $$('nav.tabs button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+
+  $$('#curSeg button').forEach(b=>b.onclick=()=>{state.cur=b.dataset.c;store.set('cur',state.cur);render()});
+  $$('#sinalSeg button').forEach(b=>b.onclick=()=>{state.sinal=+b.dataset.s;store.set('sinal',state.sinal);render()});
+  $('#fx').value=state.fx;
+  $('#fx').addEventListener('input',e=>{state.fx=e.target.value;store.set('fx',state.fx);render()});
+
+  const capEl=$('#capital'), lucEl=$('#lucro');
+  bindMoney(capEl,'capital'); bindMoney(lucEl,'lucro');
+  function bindVals(){[[capEl,'capital'],[lucEl,'lucro']].forEach(([el,k])=>el.value=state[k]?(state[k]/100).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')}
+
+  renderRules(); renderHist(); render();
+
+  // PWA (funciona quando hospedado no GitHub Pages; ignorado onde não é permitido)
+  try{if('serviceWorker' in navigator && location.protocol==='https:' && /github\.io$/.test(location.hostname)){navigator.serviceWorker.register('sw.js').catch(()=>{})}}catch(e){}
+})();
+</script>
+</body>
+</html>

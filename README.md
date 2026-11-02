@@ -1,0 +1,11 @@
+# Forex Split · 利润分配
+
+Calculadora de divisão de lucros de operações Forex. Funciona no celular e no desktop e pode ser instalada como app (PWA).
+
+- Informe o capital operado e o lucro; escolha a moeda (US$, R$, ¥, USDT).
+- Regra padrão: Trader (chinês) 60% · Investidor 20% · Sócios 20% divididos igualmente entre 3.
+- As porcentagens e as pessoas podem ser editadas na aba **Divisão** (ficam salvas no aparelho).
+- Cotação opcional para ver cada parte também em R$.
+- Botão para copiar o resumo (para WhatsApp) e histórico local.
+
+Publicado via GitHub Pages (branch `main`, pasta raiz).
