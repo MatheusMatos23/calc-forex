@@ -144,6 +144,14 @@
             <button data-s="1">Lucro ▲</button><button data-s="-1">Prejuízo ▼</button>
           </div>
         </div>
+        <div class="field">
+          <label class="f">Taxa de saque / custos (opcional) <span class="cn">提现费</span></label>
+          <div class="row2">
+            <div class="inp"><input id="feePct" inputmode="decimal" autocomplete="off" placeholder="0" style="font-size:18px"><span style="margin:0 0 0 6px">%</span></div>
+            <div class="inp"><span class="sym"></span><input id="feeFix" inputmode="numeric" autocomplete="off" placeholder="0,00" style="font-size:18px"></div>
+          </div>
+          <div class="hint">% sobre o lucro + valor fixo. É descontado do lucro antes de dividir.</div>
+        </div>
         <div class="field" id="fxField">
           <label class="f">Cotação p/ Real (opcional) <span class="cn">汇率</span></label>
           <div class="inp"><span id="fxLbl">1 US$ =</span><input id="fx" inputmode="decimal" autocomplete="off" placeholder="ex: 5,40"></div>
@@ -157,6 +165,7 @@
           <div class="kpi big"><small>Lucro a dividir · 待分配利润</small><b id="kLucro">—</b></div>
           <div class="kpi"><small>Retorno sobre capital</small><b id="kRet">—</b></div>
           <div class="kpi"><small>Capital + lucro</small><b id="kTot">—</b></div>
+          <div class="kpi big" id="kFeeBox" style="display:none;padding:10px 12px"><small style="margin:0">Lucro bruto <b id="kBruto" style="font-size:13px;color:var(--text)"></b> · Taxas <b id="kFee" class="neg" style="font-size:13px"></b></small></div>
         </div>
         <div class="bar" id="bar"></div>
         <div id="shares"></div>
@@ -225,6 +234,7 @@
     cur:store.get('cur','USD'),
     capital:store.get('capital',0), lucro:store.get('lucro',0), sinal:store.get('sinal',1),
     fx:store.get('fx',''),
+    feePct:store.get('feePct',''), feeFix:store.get('feeFix',0),
     rules:store.get('rules',null)||JSON.parse(JSON.stringify(DEFAULT_RULES)),
     hist:store.get('hist',[])
   };
@@ -264,6 +274,15 @@
     return alloc;
   }
 
+  // lucro bruto -> taxas -> lucro líquido (centavos, com sinal)
+  function calcNet(){
+    const bruto=state.lucro*state.sinal;
+    if(bruto<=0)return{bruto,fee:0,liq:bruto};
+    const p=parseDec(state.feePct);
+    let fee=Math.round(bruto*((p>0?p:0)/100))+(state.feeFix||0);
+    fee=Math.min(fee,bruto);
+    return{bruto,fee,liq:bruto-fee};
+  }
   function render(){
     const cur=state.cur;
     $$('.sym').forEach(s=>s.textContent=SYM[cur]);
@@ -271,8 +290,10 @@
     $$('#sinalSeg button').forEach(b=>b.classList.toggle('on',+b.dataset.s===state.sinal));
     $('#fxField').style.display=cur==='BRL'?'none':'';
     $('#fxLbl').textContent='1 '+SYM[cur]+' =';
-    const cap=state.capital, luc=state.lucro*state.sinal;
+    const cap=state.capital, N=calcNet(), luc=N.liq;
     const fx=parseDec(state.fx); const hasFx=cur!=='BRL'&&fx>0;
+    $('#kFeeBox').style.display=N.fee>0?'':'none';
+    $('#kBruto').textContent=fmt(N.bruto,cur); $('#kFee').textContent='− '+fmt(N.fee,cur);
     const kl=$('#kLucro');
     kl.textContent=state.lucro?fmt(luc,cur):'—';
     kl.className=luc<0?'neg':'';
@@ -304,11 +325,13 @@
   function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
   function summary(){
-    const cur=state.cur, luc=state.lucro*state.sinal, base=luc>0?luc:0, fx=parseDec(state.fx), hasFx=cur!=='BRL'&&fx>0;
+    const cur=state.cur, N=calcNet(), luc=N.liq, base=luc>0?luc:0, fx=parseDec(state.fx), hasFx=cur!=='BRL'&&fx>0;
     const alloc=split(base);
     const d=new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
     let t='📊 FOREX · 利润分配 — '+d+'\n';
-    t+='Capital: '+fmt(state.capital,cur)+'\nLucro: '+fmt(luc,cur)+(state.capital?' ('+pctFmt(luc/state.capital*100)+')':'')+'\n';
+    t+='Capital: '+fmt(state.capital,cur)+'\n';
+    if(N.fee>0)t+='Lucro bruto: '+fmt(N.bruto,cur)+'\nTaxas/saque: − '+fmt(N.fee,cur)+'\n';
+    t+='Lucro'+(N.fee>0?' líquido':'')+': '+fmt(luc,cur)+(state.capital?' ('+pctFmt(luc/state.capital*100)+')':'')+'\n';
     if(hasFx)t+='Cotação: 1 '+SYM[cur]+' = R$ '+fx.toLocaleString('pt-BR')+'\n';
     t+='────────────\n';
     state.rules.forEach((r,ri)=>{
@@ -359,11 +382,13 @@
   $('#hist').addEventListener('click',e=>{const i=e.target.dataset.load;if(i==null)return;const x=state.hist[+i];
     state.cur=x.cur;state.capital=x.capital;state.lucro=Math.abs(x.lucro);state.sinal=x.lucro<0?-1:1;state.fx=x.fx||'';
     if(x.rules)state.rules=JSON.parse(JSON.stringify(x.rules));
-    ['cur','capital','lucro','sinal','fx','rules'].forEach(k=>store.set(k,state[k]));
-    $('#fx').value=state.fx;bindVals();renderRules();render();go('calc')});
+    state.feePct=x.feePct||'';state.feeFix=x.feeFix||0;
+    ['cur','capital','lucro','sinal','fx','rules','feePct','feeFix'].forEach(k=>store.set(k,state[k]));
+    $('#fx').value=state.fx;$('#feePct').value=state.feePct;
+    $('#feeFix').value=state.feeFix?(state.feeFix/100).toLocaleString('pt-BR',{minimumFractionDigits:2}):'';bindVals();renderRules();render();go('calc')});
   $('#bSave').onclick=()=>{
     if(!state.lucro){toast('Informe o lucro primeiro');return}
-    state.hist.unshift({date:new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),cur:state.cur,capital:state.capital,lucro:state.lucro*state.sinal,fx:state.fx,rules:state.rules});
+    state.hist.unshift({date:new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),cur:state.cur,capital:state.capital,lucro:state.lucro*state.sinal,fx:state.fx,feePct:state.feePct,feeFix:state.feeFix,rules:state.rules});
     state.hist=state.hist.slice(0,50);store.set('hist',state.hist);renderHist();toast('Operação salva ✓')};
   let clearArm=0;
   $('#bClear').onclick=e=>{
@@ -388,7 +413,9 @@
   $('#fx').addEventListener('input',e=>{state.fx=e.target.value;store.set('fx',state.fx);render()});
 
   const capEl=$('#capital'), lucEl=$('#lucro');
-  bindMoney(capEl,'capital'); bindMoney(lucEl,'lucro');
+  bindMoney(capEl,'capital'); bindMoney(lucEl,'lucro'); bindMoney($('#feeFix'),'feeFix');
+  $('#feePct').value=state.feePct;
+  $('#feePct').addEventListener('input',e=>{state.feePct=e.target.value;store.set('feePct',state.feePct);render()});
   function bindVals(){[[capEl,'capital'],[lucEl,'lucro']].forEach(([el,k])=>el.value=state[k]?(state[k]/100).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')}
 
   renderRules(); renderHist(); render();
