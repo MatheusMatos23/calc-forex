@@ -11,7 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="Forex Split">
 <title>Forex Split · 利润分配</title>
 <script>
-(function(){var k=null;try{var m=location.hash.match(/[#&]v=([A-Za-z0-9_-]{30,})/);
+(function(){var k=null;try{if(location.hash==='#admin'){localStorage.removeItem('fxsplit_viewKey');history.replaceState(null,'',location.pathname)}
+  var m=location.hash.match(/[#&]v=([A-Za-z0-9_-]{30,})/);
   if(m){k=m[1];localStorage.setItem('fxsplit_viewKey',JSON.stringify(k))}
   else if(!localStorage.getItem('fxsplit_ghToken')||localStorage.getItem('fxsplit_ghToken')==='""'){var s=localStorage.getItem('fxsplit_viewKey');if(s)k=JSON.parse(s)}}catch(e){}
   window.VIEWKEY=k;if(k)document.documentElement.classList.add('viewmode');})();
@@ -847,7 +848,7 @@ const MT5 = (function(){
     const t0=Date.parse(c.t0.replace(' ','T')+':00Z'), S=c.series; if(!S||S.length<2)return '';
     const pts=S.map(p=>({t:t0+p[0]*6e4,b:p[1],e:p[2]}));
     const W=600,H=200,PL=72,PR=10,PT=12,PB=24;
-    const vals=pts.flatMap(p=>[p.b,p.e]).filter(v=>v!=null);let mn=Math.min(...vals),mx=Math.max(...vals);
+    const vals=pts.map(p=>p.b).filter(v=>v!=null);let mn=Math.min(...vals),mx=Math.max(...vals);
     const pad=(mx-mn)*0.08||1; mn-=pad; mx+=pad;
     const ta=pts[0].t,tb=pts[pts.length-1].t;
     const X=t=>PL+(t-ta)/((tb-ta)||1)*(W-PL-PR), Y=v=>H-PB-(v-mn)/(mx-mn)*(H-PT-PB);
@@ -859,9 +860,9 @@ const MT5 = (function(){
       ticks+='<line x1="'+x+'" x2="'+x+'" y1="'+PT+'" y2="'+(H-PB)+'" stroke="#ffffff10"/><text x="'+x+'" y="'+(H-6)+'" text-anchor="middle" class="ax">'+new Date(d).toISOString().slice(8,10)+'/'+new Date(d).toISOString().slice(5,7)+'</text>'}
     const yl=[mx-pad,(mn+mx)/2,mn+pad].map(v=>'<text x="4" y="'+(Y(v)+4)+'" class="ax">'+n2(v)+'</text><line x1="'+PL+'" x2="'+(W-PR)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#ffffff0c"/>').join('');
     return '<svg viewBox="0 0 '+W+' '+H+'" class="chart"><defs><linearGradient id="lg2" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F2C14E" stop-opacity=".3"/><stop offset="1" stop-color="#F2C14E" stop-opacity="0"/></linearGradient></defs>'+
-      yl+ticks+'<path d="'+area+'" fill="url(#lg2)"/>'+(pts.some(p=>p.e!=null)?'<path d="'+path('e')+'" fill="none" stroke="#B678FF" stroke-width="1.6" stroke-dasharray="4 3"/>':'')+
+      yl+ticks+'<path d="'+area+'" fill="url(#lg2)"/>'+
       '<path d="'+bp+'" fill="none" stroke="#F2C14E" stroke-width="2.4" stroke-linejoin="round"/></svg>'+
-      '<div class="legend"><span><i style="background:#F2C14E"></i>Saldo</span>'+(pts.some(p=>p.e!=null)?'<span><i style="background:#B678FF"></i>Equity (com operações abertas)</span>':'')+'</div>';
+      '<div class="legend"><span><i style="background:#F2C14E"></i>Saldo</span></div>';
   }
   function dailyHtml(r,cur){
     const c=r.curve; if(!c||!c.daily||!c.daily.length)return '';
@@ -988,8 +989,7 @@ const MT5 = (function(){
   function renderViewStatus(){const el=document.getElementById('viewStatus');if(!el)return;
     el.innerHTML=(remoteErr?'<span class="neg">'+esc(remoteErr)+'</span> · ':'')+(remoteAt?'Atualizado em '+new Date(remoteAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'')+' · <a href="#" id="viewRef">↻ atualizar</a>';
     const ft=document.getElementById('viewFoot');if(!ft){const d=document.createElement('div');d.id='viewFoot';d.className='hint';d.style.cssText='text-align:center;margin:22px 0 8px;opacity:.6';
-      d.innerHTML='Somente visualização · <a href="#" style="color:inherit">abrir app completo neste aparelho</a>';
-      d.querySelector('a').onclick=e=>{e.preventDefault();try{localStorage.removeItem('fxsplit_viewKey')}catch(_){}location.href=location.pathname};document.querySelector('.wrap').appendChild(d)}
+      d.textContent='Somente visualização';document.querySelector('.wrap').appendChild(d)}
     const a=document.getElementById('viewRef');if(a)a.onclick=e=>{e.preventDefault();a.textContent='atualizando…';fetchRemote()}}
   // ---- painel ----
   function renderDash(){
@@ -1059,7 +1059,7 @@ const MT5 = (function(){
       catch(e){toast('Arquivo de backup inválido')}};
   }
   renderDash();
-  if(VIEW){window.FX.go('panel');document.title='Painel · Forex Split';
+  if(VIEW){window.FX.go('panel');['v-calc','v-cfg','v-hist'].forEach(id=>{const el=document.getElementById(id);if(el)el.remove()});const nv=document.querySelector('nav.tabs');if(nv)nv.remove();document.title='Painel · Forex Split';
     const sub=document.querySelector('header p');if(sub)sub.innerHTML='外汇利润分配 · Painel compartilhado';
     fetchRemote();setInterval(fetchRemote,180000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)fetchRemote()})}
 })();
