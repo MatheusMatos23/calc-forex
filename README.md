@@ -9,3 +9,4 @@ Calculadora de divisão de lucros de operações Forex. Funciona no celular e no
 - Botão para copiar o resumo (para WhatsApp) e histórico local.
 
 Publicado via GitHub Pages (branch `main`, pasta raiz).
+- **Painel**: importa o PDF do relatório do MetaTrader 5 (lido no próprio navegador), mostra indicadores, evolução do saldo e o lucro entre importações, e envia o lucro da semana direto para a divisão. Backup/restauração em JSON.
