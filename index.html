@@ -54,7 +54,9 @@
   .hint{font-size:11.5px;color:var(--muted);margin-top:6px}
   .hero{background:linear-gradient(140deg,#2A0D10 0%,#1A1012 45%,#171920 100%);border-color:#4a1d22;position:relative;overflow:hidden}
   .hero:after{content:"利";position:absolute;right:-6px;bottom:-34px;font:700 150px "Noto Sans SC";color:#ffffff07;pointer-events:none}
-  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+  .kpis{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:6px}
+  .kpi{min-width:0}
+  @media(max-width:480px){#dashHero .kpi:not(.big) b{font-size:16px}#dashHero .kpi.big b{font-size:26px}.imprt .lg{display:none}}
   .kpi{background:#ffffff08;border:1px solid #ffffff10;border-radius:14px;padding:12px}
   .kpi small{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:4px}
   .kpi b{font-size:20px;font-weight:800;letter-spacing:-.3px;white-space:nowrap}
@@ -109,7 +111,16 @@
   .pgrid{display:grid;gap:16px}
   @media(min-width:860px){.pgrid{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);align-items:stretch}
     .imp{display:flex;flex-direction:column}.imp .drop{flex:1;justify-content:center}#dashHero>.card{height:100%}}
-  .dgrid{display:grid;gap:16px;margin-top:16px}
+  .imprt{display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:#1a1405;border:0;border-radius:10px;font:700 13px Inter;padding:8px 12px;cursor:pointer;white-space:nowrap}
+  .hhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .hhead h2{margin:0 0 4px}
+  .dropov{position:fixed;inset:0;background:#0E0F13d9;border:3px dashed var(--gold);display:none;align-items:center;justify-content:center;z-index:30;font-weight:800;font-size:20px;color:var(--gold)}
+  .dropov.on{display:flex}
+  #dashHero .empty-hero{text-align:center;padding:26px 10px}
+  #dashHero .empty-hero .imprt{font-size:15px;padding:13px 20px;margin-top:14px}
+  @media(min-width:960px){#dashHero .kpis{grid-template-columns:1.5fr 1fr 1fr;align-items:stretch}#dashHero .kpi.big{grid-column:auto}
+    #dashHero .hbtns{display:flex;justify-content:flex-end}#dashHero .hbtns .btns{width:min(520px,100%);margin-top:12px}}
+  .dgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px}
   .dgrid:empty{display:none}
   .stack{display:grid;gap:16px;align-content:start}
   @media(min-width:960px){.dgrid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}.span2{grid-column:1/-1}
@@ -213,23 +224,15 @@
 
   <!-- PAINEL -->
   <section class="view" id="v-panel">
-    <div class="pgrid">
-      <div class="card imp">
-        <h2>Importar relatório MT5 <span class="cn">导入报告</span></h2>
-        <label class="drop" id="drop">
-          <input type="file" id="pdfIn" accept="application/pdf,.pdf" hidden>
-          <div class="dropi">📄</div>
-          <b>Toque para escolher o PDF</b>
-          <span>ou arraste o arquivo aqui</span>
-          <small>MetaTrader 5 → Relatório → compartilhar/salvar como PDF</small>
-        </label>
-        <div id="impMsg"></div>
-        <div id="preview"></div>
-      </div>
-      <div id="dashHero"></div>
-    </div>
+    <input type="file" id="pdfIn" accept="application/pdf,.pdf" hidden>
+    <div id="dashHero"></div>
     <div id="dash" class="dgrid"></div>
+    <div class="dropov" id="dropov"><div>📄 Solte o PDF do relatório aqui</div></div>
   </section>
+  <div class="modal" id="impModal"><div class="card">
+    <h2>Importar relatório MT5 <span class="cn">导入报告</span></h2>
+    <div id="impMsg"></div><div id="preview"></div>
+  </div></div>
 
   <!-- CONFIG -->
   <section class="view" id="v-cfg">
@@ -703,18 +706,20 @@ const MT5 = (function(){
   // ---- importação ----
   async function handleFile(f){
     if(!f)return;
+    $('#impModal').classList.add('on');
     $('#impMsg').innerHTML='<div class="warn ok">Lendo '+esc(f.name)+'…</div>'; $('#preview').innerHTML='';
     try{
       const d=await MT5.readFile(f);
       if(d.balance==null&&d.total==null)throw new Error('Não encontrei os dados do relatório neste PDF. Ele precisa ser o relatório (Report) exportado do MetaTrader 5.');
       d.fileName=f.name; pending=d; $('#impMsg').innerHTML=''; renderPreview();
-    }catch(e){pending=null;$('#impMsg').innerHTML='<div class="warn">'+esc(e.message||e)+'</div>'}
+    }catch(e){pending=null;$('#impMsg').innerHTML='<div class="warn">'+esc(e.message||e)+'</div><div class="btns" style="grid-template-columns:1fr"><button class="btn ghost" onclick="document.getElementById(\'impModal\').classList.remove(\'on\')">Fechar</button></div>'}
   }
   $('#pdfIn').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
-  const drop=$('#drop');
-  ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
-  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
-  drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)handleFile(f)});
+  const ov=$('#dropov'), panelOn=()=>$('#v-panel').classList.contains('on');
+  window.addEventListener('dragover',e=>{if(!panelOn())return;e.preventDefault();ov.classList.add('on')});
+  ov.addEventListener('dragleave',e=>{e.preventDefault();ov.classList.remove('on')});
+  ov.addEventListener('drop',e=>{e.preventDefault();ov.classList.remove('on');const f=e.dataTransfer.files[0];if(f)handleFile(f)});
+  document.addEventListener('click',e=>{if(e.target.closest('[data-import]'))$('#pdfIn').click()});
 
   function renderPreview(){
     const d=pending; if(!d){$('#preview').innerHTML='';return}
@@ -729,11 +734,11 @@ const MT5 = (function(){
       rows.map(r=>'<div class="pr"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('')+
       (dup?'<div class="warn">Já existe uma importação desta conta com a mesma data. Confirmar vai substituí-la.</div>':'')+
       '<div class="btns"><button class="btn ghost" id="pCancel">Cancelar</button><button class="btn gold" id="pOk">✓ Confirmar importação</button></div></div>';
-    $('#pCancel').onclick=()=>{pending=null;renderPreview()};
+    $('#pCancel').onclick=()=>{pending=null;renderPreview();$('#impModal').classList.remove('on')};
     $('#pOk').onclick=()=>{
       const d=pending; d.importedAt=new Date().toISOString(); d.id=d.account+'|'+d.reportDate;
       reports=reports.filter(r=>r.id!==d.id); reports.push(d); save(); selAcc=d.account; store.set('selAcc',selAcc);
-      pending=null; renderPreview(); renderDash(); fillFrom(d,true); toast('Relatório importado — calculadora preenchida ✓');
+      pending=null; renderPreview(); $('#impModal').classList.remove('on'); renderDash(); fillFrom(d,true); toast('Relatório importado — calculadora preenchida ✓');
     };
   }
 
@@ -806,7 +811,7 @@ const MT5 = (function(){
   // ---- painel ----
   function renderDash(){
     const accs=accounts();
-    if(!accs.length){$('#dash').innerHTML='';$('#dashHero').innerHTML='<div class="card"><h2>Painel <span class="cn">仪表板</span></h2><div class="empty">Importe o primeiro relatório do MetaTrader para ver o painel.<br><br>Depois, importe um novo relatório toda semana: o painel compara com o anterior e mostra o lucro da semana, pronto para dividir.</div>'+backupHtml()+'</div>';bindBackup();return}
+    if(!accs.length){$('#dash').innerHTML='';$('#dashHero').innerHTML='<div class="card hero"><div class="empty-hero"><div style="font-size:34px">📄</div><h2 style="justify-content:center;margin:8px 0 6px">Painel da conta <span class="cn">仪表板</span></h2><div class="hint">Importe o relatório PDF do MetaTrader 5 (Relatório → compartilhar/salvar como PDF).<br>Toda semana, importe o novo relatório: o painel atualiza e já preenche a calculadora.</div><button class="imprt" data-import>📄 Importar relatório</button><div class="hint" style="margin-top:10px">ou arraste o PDF para esta página</div></div></div>';$('#dash').innerHTML='<div class="card span2">'+backupHtml()+'</div>';bindBackup();return}
     if(!accs.includes(selAcc))selAcc=accs[0];
     const list=withDeltas(series(selAcc)); const r=list[list.length-1]; const cur=r.currency;
     const wk=r.weekProfit;
@@ -814,16 +819,17 @@ const MT5 = (function(){
     const kpi=(t,v,c,sub)=>'<div class="kpi"><small>'+t+'</small><b class="'+(c||'')+'">'+v+'</b>'+(sub?'<small style="margin:4px 0 0">'+sub+'</small>':'')+'</div>';
     const months=Object.keys(r.monthly||{}).sort();
     let h='<div class="card hero">'+
-      '<h2><span>'+(accs.length>1?'<select id="accSel" class="accsel">'+accs.map(a=>'<option'+(a===selAcc?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select>':'Conta '+esc(r.account))+
-        (r.type?' <span class="pill">'+esc(r.type)+'</span>':'')+'</span><span class="cn">'+esc(r.broker||'')+'</span></h2>'+
-      '<div class="hint" style="margin:-8px 0 12px">Último relatório: '+fdate(r.reportDate)+' · '+list.length+' importaç'+(list.length>1?'ões':'ão')+'</div>'+
+      '<div class="hhead"><div><h2 style="justify-content:flex-start"><span>'+(accs.length>1?'<select id="accSel" class="accsel">'+accs.map(a=>'<option'+(a===selAcc?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select>':'Conta '+esc(r.account))+
+        (r.type?' <span class="pill">'+esc(r.type)+'</span>':'')+'</span></h2>'+
+      '<div class="hint" style="margin:0">'+esc(r.broker||'')+' · último relatório: '+fdate(r.reportDate)+' · '+list.length+' importaç'+(list.length>1?'ões':'ão')+'</div></div>'+
+      '<button class="imprt" data-import>📄 Importar<span class="lg"> relatório</span></button></div>'+
       '<div class="kpis">'+
         '<div class="kpi big"><small>'+(r.prev?'Lucro desde a última importação ('+fdate(r.prev.reportDate).slice(0,10)+')':'Lucro total (1ª importação)')+' · 本周利润</small><b class="'+cls(wk)+'" style="'+(wk>0?'color:var(--green)':'')+'">'+sgn(wk,cur)+'</b>'+
         (r.prev&&r.netFlow?'<small style="margin:4px 0 0">Movimentação no período (depósitos − saques): '+sgn(r.netFlow,cur)+'</small>':'')+'</div>'+
         kpi('Saldo · 余额',money(r.balance,cur),'',r.equity!=null&&Math.abs(r.equity-r.balance)>0.005?'Equity '+money(r.equity,cur):'')+
         kpi('Lucro líquido total',sgn(r.total,cur),cls(r.total))+
       '</div>'+
-      '<div class="btns"><button class="btn gold" id="bTotal">➗ Dividir lucro total</button><button class="btn ghost" id="bSplit" '+(r.prev&&wk>0?'':'disabled style="opacity:.5"')+'>Só o da semana</button></div></div>';
+      '<div class="hbtns"><div class="btns"><button class="btn gold" id="bTotal">➗ Dividir lucro total</button><button class="btn ghost" id="bSplit" '+(r.prev&&wk>0?'':'disabled style="opacity:.5"')+'>Só o da semana</button></div></div></div>';
     $('#dashHero').innerHTML=h; h='';
     h+='<div class="card span2"><h2>Indicadores <span class="cn">指标</span></h2><div class="kgrid wide">'+
       kpi('Ganho (crescimento)',pc(r.gain),cls(r.gain))+kpi('Drawdown máximo',pc(r.maxDD),r.maxDD>20?'neg':'')+
