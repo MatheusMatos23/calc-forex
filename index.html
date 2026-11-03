@@ -50,6 +50,7 @@
   .seg{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
   .seg button{flex:1;border:0;background:transparent;color:var(--muted);font:600 13px Inter;padding:9px 4px;border-radius:9px;cursor:pointer}
   .seg button.on{background:var(--gold);color:#1a1405}
+  .pm{flex:none;width:40px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--muted);font:700 18px Inter;cursor:pointer}
   .hint{font-size:11.5px;color:var(--muted);margin-top:6px}
   .hero{background:linear-gradient(140deg,#2A0D10 0%,#1A1012 45%,#171920 100%);border-color:#4a1d22;position:relative;overflow:hidden}
   .hero:after{content:"利";position:absolute;right:-6px;bottom:-34px;font:700 150px "Noto Sans SC";color:#ffffff07;pointer-events:none}
@@ -163,10 +164,8 @@
         </div>
         <div class="field">
           <label class="f">Lucro da operação <span class="cn">利润</span></label>
-          <div class="inp"><span class="sym"></span><input id="lucro" inputmode="numeric" autocomplete="off" placeholder="0,00"></div>
-          <div class="seg" style="margin-top:8px" id="sinalSeg">
-            <button data-s="1">Lucro ▲</button><button data-s="-1">Prejuízo ▼</button>
-          </div>
+          <div class="inp"><span class="sym"></span><input id="lucro" inputmode="numeric" autocomplete="off" placeholder="0,00"><button class="pm" id="pmBtn" title="Trocar sinal (lucro/prejuízo)">±</button></div>
+          <div class="hint" id="srcHint">Preenchido automaticamente ao importar o relatório no <b>Painel</b>. Para prejuízo, toque em ± ou digite o sinal de menos.</div>
         </div>
         <div class="field">
           <label class="f">Taxa de saque / custos (opcional) <span class="cn">提现费</span></label>
@@ -277,7 +276,7 @@
   let state={
     cur:store.get('cur','USD'),
     capital:store.get('capital',0), lucro:store.get('lucro',0), sinal:store.get('sinal',1),
-    fx:store.get('fx',''),
+    fx:store.get('fx',''), src:store.get('src',null),
     feePct:store.get('feePct',''), feeFix:store.get('feeFix',0),
     rules:store.get('rules',null)||JSON.parse(JSON.stringify(DEFAULT_RULES)),
     hist:store.get('hist',[])
@@ -296,8 +295,11 @@
 
   // máscara de dinheiro: dígitos -> centavos
   function bindMoney(el,key){
-    const show=()=>{el.value=state[key]?(state[key]/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):''};
-    el.addEventListener('input',()=>{const d=el.value.replace(/\D/g,'').slice(0,15);state[key]=d?parseInt(d,10):0;show();store.set(key,state[key]);render()});
+    const signed=key==='lucro';
+    const show=()=>{const neg=signed&&state.sinal<0;el.value=state[key]?(neg?'-':'')+(state[key]/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):(neg?'-':'')};
+    el.addEventListener('input',()=>{const d=el.value.replace(/\D/g,'').slice(0,15);
+      if(signed){state.sinal=/-|−/.test(el.value)?-1:1;store.set('sinal',state.sinal)}
+      state[key]=d?parseInt(d,10):0;show();store.set(key,state[key]);setSrc(null);render()});
     show();
   }
 
@@ -331,7 +333,6 @@
     const cur=state.cur;
     $$('.sym').forEach(s=>s.textContent=SYM[cur]);
     $$('#curSeg button').forEach(b=>b.classList.toggle('on',b.dataset.c===cur));
-    $$('#sinalSeg button').forEach(b=>b.classList.toggle('on',+b.dataset.s===state.sinal));
     $('#fxField').style.display=cur==='BRL'?'none':'';
     $('#fxLbl').textContent='1 '+SYM[cur]+' =';
     const cap=state.capital, N=calcNet(), luc=N.liq;
@@ -452,20 +453,21 @@
   $$('nav.tabs button').forEach(b=>b.onclick=()=>go(b.dataset.v));
 
   $$('#curSeg button').forEach(b=>b.onclick=()=>{state.cur=b.dataset.c;store.set('cur',state.cur);render()});
-  $$('#sinalSeg button').forEach(b=>b.onclick=()=>{state.sinal=+b.dataset.s;store.set('sinal',state.sinal);render()});
   $('#fx').value=state.fx;
   $('#fx').addEventListener('input',e=>{state.fx=e.target.value;store.set('fx',state.fx);render()});
 
   const capEl=$('#capital'), lucEl=$('#lucro');
-  bindMoney(capEl,'capital'); bindMoney(lucEl,'lucro'); bindMoney($('#feeFix'),'feeFix');
+  bindMoney(capEl,'capital'); bindMoney(lucEl,'lucro');
+  $('#pmBtn').onclick=()=>{state.sinal=state.sinal<0?1:-1;store.set('sinal',state.sinal);bindVals();setSrc(null);render()}; bindMoney($('#feeFix'),'feeFix');
   $('#feePct').value=state.feePct;
   $('#feePct').addEventListener('input',e=>{state.feePct=e.target.value;store.set('feePct',state.feePct);render()});
-  function bindVals(){[[capEl,'capital'],[lucEl,'lucro']].forEach(([el,k])=>el.value=state[k]?(state[k]/100).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')}
+  function bindVals(){[[capEl,'capital'],[lucEl,'lucro']].forEach(([el,k])=>el.value=state[k]?((k==='lucro'&&state.sinal<0)?'-':'')+(state[k]/100).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')}
+  function setSrc(t){state.src=t;store.set('src',t);const h=$('#srcHint');if(h)h.innerHTML=t?'📄 '+t+' — você pode editar manualmente. Para prejuízo, toque em ±.':'Preenchido automaticamente ao importar o relatório no <b>Painel</b>. Para prejuízo, toque em ± ou digite o sinal de menos.'}
 
-  renderRules(); renderHist(); render();
+  renderRules(); renderHist(); render(); setSrc(state.src);
   window.FX={store,toast,go,
-    loadSplit(o){state.cur=o.cur;state.capital=Math.round((o.capital||0)*100);state.lucro=Math.round(Math.abs(o.lucro)*100);state.sinal=o.lucro<0?-1:1;
-      ['cur','capital','lucro','sinal'].forEach(k=>store.set(k,state[k]));bindVals();render();go('calc');toast('Lucro enviado para a divisão ✓')},
+    loadSplit(o){setSrc(o.src||null);state.cur=o.cur;state.capital=Math.round((o.capital||0)*100);state.lucro=Math.round(Math.abs(o.lucro)*100);state.sinal=o.lucro<0?-1:1;
+      ['cur','capital','lucro','sinal'].forEach(k=>store.set(k,state[k]));bindVals();render();if(!o.silent){go('calc');toast('Lucro enviado para a divisão ✓')}},
     setRules(r){state.rules=r;store.set('rules',r);renderRules();render()}};
 
   // PWA (funciona quando hospedado no GitHub Pages; ignorado onde não é permitido)
@@ -592,6 +594,12 @@ const MT5 = (function(){
   const MN=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
   function save(){store.set('reports',reports)}
+  const mapCur=c=>c==='USDT'?'USDT':(c==='BRL'?'BRL':'USD');
+  // capital = depósitos − saques; lucro = lucro líquido total do relatório
+  function fillFrom(r,silent){
+    const capital=(r.deposits||0)-(r.withdrawals||0)||((r.balance||0)-(r.total||0));
+    window.FX.loadSplit({cur:mapCur(r.currency),capital,lucro:r.total||0,silent,src:'Relatório de '+fdate(r.reportDate)+' (conta '+r.account+')'});
+  }
   function accounts(){return [...new Set(reports.map(r=>r.account))]}
   function series(acc){return reports.filter(r=>r.account===acc).sort((a,b)=>a.reportDate<b.reportDate?-1:1)}
   function withDeltas(list){return list.map((r,i)=>{const p=list[i-1];
@@ -631,7 +639,7 @@ const MT5 = (function(){
     $('#pOk').onclick=()=>{
       const d=pending; d.importedAt=new Date().toISOString(); d.id=d.account+'|'+d.reportDate;
       reports=reports.filter(r=>r.id!==d.id); reports.push(d); save(); selAcc=d.account; store.set('selAcc',selAcc);
-      pending=null; renderPreview(); renderDash(); toast('Relatório importado ✓');
+      pending=null; renderPreview(); renderDash(); fillFrom(d,true); toast('Relatório importado — calculadora preenchida ✓');
     };
   }
 
@@ -679,7 +687,7 @@ const MT5 = (function(){
         kpi('Saldo · 余额',money(r.balance,cur),'',r.equity!=null&&Math.abs(r.equity-r.balance)>0.005?'Equity '+money(r.equity,cur):'')+
         kpi('Lucro líquido total',sgn(r.total,cur),cls(r.total))+
       '</div>'+
-      '<div class="btns" style="grid-template-columns:1fr"><button class="btn gold" id="bSplit" '+(wk>0?'':'disabled style="opacity:.5"')+'>➗ Dividir este lucro</button></div></div>';
+      '<div class="btns"><button class="btn gold" id="bTotal">➗ Dividir lucro total</button><button class="btn ghost" id="bSplit" '+(r.prev&&wk>0?'':'disabled style="opacity:.5"')+'>Só o da semana</button></div></div>';
     h+='<div class="card" style="margin-bottom:16px"><h2>Indicadores <span class="cn">指标</span></h2><div class="kgrid">'+
       kpi('Ganho (crescimento)',pc(r.gain),cls(r.gain))+kpi('Drawdown máximo',pc(r.maxDD),r.maxDD>20?'neg':'')+
       kpi('Lucro bruto',money(r.grossProfit,cur),'pos')+kpi('Perda bruta',money(r.grossLoss,cur),'neg')+
@@ -699,9 +707,9 @@ const MT5 = (function(){
       list.slice().reverse().map(x=>'<div class="tr t4"><span>'+fdate(x.reportDate)+'</span><span>'+n2(x.balance)+'</span><span class="'+cls(x.weekProfit)+'">'+(x.weekProfit==null?'—':(x.weekProfit>0?'+':'')+n2(x.weekProfit))+'</span><span><button class="x" data-rm="'+esc(x.id)+'" title="Excluir">×</button></span></div>').join('')+'</div>'+backupHtml()+'</div>';
     $('#dash').innerHTML=h;
     const sel=$('#accSel'); if(sel)sel.onchange=e=>{selAcc=e.target.value;store.set('selAcc',selAcc);renderDash()};
-    $('#bSplit').onclick=()=>{if(!(wk>0))return;
-      const capital=r.prev?r.prev.balance:(r.deposits||r.balance-wk);
-      window.FX.loadSplit({cur:cur==='USD'?'USD':(cur==='USDT'?'USDT':'USD'),capital,lucro:wk});};
+    $('#bTotal').onclick=()=>fillFrom(r,false);
+    $('#bSplit').onclick=()=>{if(!(r.prev&&wk>0))return;
+      window.FX.loadSplit({cur:mapCur(cur),capital:r.prev.balance,lucro:wk,src:'Lucro de '+fdate(r.prev.reportDate).slice(0,10)+' a '+fdate(r.reportDate).slice(0,10)+' (conta '+r.account+')'});};
     $('#dash').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
       if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='?';b.style.color='var(--danger)';setTimeout(()=>{b.dataset.arm='';b.textContent='×';b.style.color=''},2500);return}
       reports=reports.filter(x=>x.id!==b.dataset.rm);save();renderDash();toast('Importação removida')});
