@@ -156,6 +156,37 @@
   .modal .card{width:100%;max-width:520px}
   .modal textarea{width:100%;min-height:220px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:13px/1.5 ui-monospace,Menlo,monospace}
   @media(min-width:860px){.modal{align-items:center}}
+
+  /* ---- mobile: sem rolagem lateral ---- */
+  html,body{max-width:100%;overflow-x:hidden}
+  @supports(overflow:clip){html,body{overflow-x:clip}}
+  .wrap,.view,.card,.grid>*,.pgrid>*,.dgrid>*{min-width:0}
+  img,svg{max-width:100%}
+  .modal{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .modal .card{min-width:0;max-height:calc(100dvh - 24px);overflow-y:auto}
+  .pr b{min-width:0;overflow-wrap:anywhere}
+  .pr span{flex:none}
+  .toast{max-width:calc(100vw - 32px);text-align:center;white-space:normal}
+  @media(max-width:600px){
+    input,select,textarea,.rule input,.accsel{font-size:16px!important}
+    .wrap{padding:12px}
+    .card{padding:16px}
+    .btn{padding:13px 12px;font-size:14px;min-height:46px}
+    .btns{gap:8px}
+    .btn{white-space:normal;line-height:1.2;text-align:center}
+    .rule{padding:10px}
+    .rule .top{grid-template-columns:minmax(0,1fr) 82px 44px;gap:6px}
+    .rule input{padding:11px 10px}
+    .rule .pctwrap input{padding-right:28px}
+    #dashHero .btns{grid-template-columns:minmax(0,1fr)}
+    .rule .x,.tr .x{width:44px;height:44px}
+    .tr .x{width:36px;height:36px}
+    .pm{width:46px;height:42px;font-size:20px}
+    .seg button{padding:11px 4px}
+    .hi .btn{min-height:42px}
+  }
+  .btns{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .btn{min-width:0}
 </style>
 </head>
 <body>
