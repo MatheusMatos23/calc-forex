@@ -107,7 +107,14 @@
   .hi b{font-size:15px}
   .empty{color:var(--muted);text-align:center;padding:30px 10px;font-size:14px}
   .pgrid{display:grid;gap:16px}
-  @media(min-width:860px){.pgrid{grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);align-items:start}}
+  @media(min-width:860px){.pgrid{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);align-items:stretch}
+    .imp{display:flex;flex-direction:column}.imp .drop{flex:1;justify-content:center}#dashHero>.card{height:100%}}
+  .dgrid{display:grid;gap:16px;margin-top:16px}
+  .dgrid:empty{display:none}
+  .stack{display:grid;gap:16px;align-content:start}
+  @media(min-width:960px){.dgrid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}.span2{grid-column:1/-1}
+    .dgrid .kgrid.wide{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(min-width:1150px){.dgrid .kgrid.wide{grid-template-columns:repeat(7,minmax(0,1fr))}.dgrid .kgrid.wide .kpi b{font-size:16px}}
   .drop{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;border:2px dashed #3a3f4d;border-radius:16px;padding:26px 14px;cursor:pointer;background:var(--card2);transition:.15s}
   .drop:hover,.drop.over{border-color:var(--gold);background:#f2c14e0d}
   .drop .dropi{font-size:34px}.drop b{font-size:15px}.drop span{color:var(--muted);font-size:13px}.drop small{color:var(--muted);font-size:11.5px;margin-top:8px}
@@ -207,7 +214,7 @@
   <!-- PAINEL -->
   <section class="view" id="v-panel">
     <div class="pgrid">
-      <div class="card">
+      <div class="card imp">
         <h2>Importar relatório MT5 <span class="cn">导入报告</span></h2>
         <label class="drop" id="drop">
           <input type="file" id="pdfIn" accept="application/pdf,.pdf" hidden>
@@ -219,8 +226,9 @@
         <div id="impMsg"></div>
         <div id="preview"></div>
       </div>
-      <div id="dash"></div>
+      <div id="dashHero"></div>
     </div>
+    <div id="dash" class="dgrid"></div>
   </section>
 
   <!-- CONFIG -->
@@ -672,7 +680,7 @@ const MT5 = (function(){
   let pending=null;
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const n2=v=>v==null||isNaN(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const money=(v,cur)=>v==null||isNaN(v)?'—':(v<0?'− ':'')+(cur&&cur!=='USD'?'':'US$ ')+n2(Math.abs(v))+(cur&&cur!=='USD'?' '+cur:'');
+  const money=(v,cur)=>v==null||isNaN(v)?'—':(v<0?'-':'')+(cur&&cur!=='USD'?'':'US$ ')+n2(Math.abs(v))+(cur&&cur!=='USD'?' '+cur:'');
   const sgn=(v,cur)=>v==null?'—':(v>0?'+ ':'')+money(v,cur);
   const pc=v=>v==null||isNaN(v)?'—':v.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
   const cls=v=>v>0?'pos':(v<0?'neg':'');
@@ -781,15 +789,15 @@ const MT5 = (function(){
     const sum=D.reduce((a,b)=>a+b.profit,0);
     const fd=k=>{const [y,m,d]=k.split('-');return d+'/'+m};
     const wd=k=>['dom','seg','ter','qua','qui','sex','sáb'][new Date(k+'T12:00:00Z').getUTCDay()];
-    let h='<div class="card" style="margin-bottom:16px"><h2>Evolução do capital <span class="cn">资金曲线</span></h2>'+timeChart(c,cur)+'</div>';
-    h+='<div class="card" style="margin-bottom:16px"><h2>Resultado por dia <span class="cn">每日盈亏</span></h2>'+
+    let h='<div class="card"><h2>Evolução do capital <span class="cn">资金曲线</span></h2>'+timeChart(c,cur)+'</div>';
+    h+='<div class="card"><h2>Resultado por dia <span class="cn">每日盈亏</span></h2>'+
       '<div class="kgrid" style="margin-bottom:12px">'+
         '<div class="kpi"><small>Dias com resultado</small><b>'+tradingDays.length+'</b><small style="margin:4px 0 0">'+wins.length+' positivo(s)</small></div>'+
         '<div class="kpi"><small>Média por dia operado</small><b class="'+cls(sum)+'">'+(tradingDays.length?sgn(sum/tradingDays.length,cur):'—')+'</b></div>'+
         '<div class="kpi"><small>Melhor dia</small><b class="pos">'+(best?sgn(best.profit,cur):'—')+'</b><small style="margin:4px 0 0">'+(best?fd(best.d):'')+'</small></div>'+
         (worst&&worst.profit<0?'<div class="kpi"><small>Pior dia</small><b class="neg">'+sgn(worst.profit,cur)+'</b><small style="margin:4px 0 0">'+fd(worst.d)+'</small></div>':'')+
-      '</div>'+barChart(last31.map(x=>({l:fd(x.d),v:x.profit})))+
-      '<div class="tbl" style="margin-top:12px"><div class="tr th t4d"><span>Dia</span><span>Saldo no fim do dia</span><span>Resultado</span><span>%</span></div>'+
+      '</div>'+barChart(last31.map(x=>({l:fd(x.d),v:x.profit})))+'</div>'+
+      '<div class="card"><h2>Detalhe por dia <span class="cn">每日明细</span></h2><div class="tbl"><div class="tr th t4d"><span>Dia</span><span>Saldo no fim do dia</span><span>Resultado</span><span>%</span></div>'+
       last31.slice().reverse().map(x=>'<div class="tr t4d"><span>'+fd(x.d)+' <small class="cn">'+wd(x.d)+'</small></span><span>'+n2(x.close)+
         (x.flow?'<small class="flow">'+(x.flow>0?'depósito +':'saque ')+n2(x.flow)+'</small>':'')+'</span><span class="'+cls(x.profit)+'">'+(x.profit>0?'+':'')+n2(x.profit)+'</span><span class="'+cls(x.pct)+'">'+(x.pct==null?'—':pc(x.pct))+'</span></div>').join('')+
       '</div><div class="hint" style="margin-top:8px">Valores lidos do gráfico de saldo do relatório (pontos a cada ~2h; precisão de ~US$ 1). Depósitos e saques são separados do resultado pelo gráfico de crescimento.'+(c.quality!=='ok'?' Escala ajustada pelo saldo final.':'')+(D.length>31?' Mostrando os últimos 31 dias.':'')+'</div></div>';
@@ -798,14 +806,14 @@ const MT5 = (function(){
   // ---- painel ----
   function renderDash(){
     const accs=accounts();
-    if(!accs.length){$('#dash').innerHTML='<div class="card"><h2>Painel <span class="cn">仪表板</span></h2><div class="empty">Importe o primeiro relatório do MetaTrader para ver o painel.<br><br>Depois, importe um novo relatório toda semana: o painel compara com o anterior e mostra o lucro da semana, pronto para dividir.</div>'+backupHtml()+'</div>';bindBackup();return}
+    if(!accs.length){$('#dash').innerHTML='';$('#dashHero').innerHTML='<div class="card"><h2>Painel <span class="cn">仪表板</span></h2><div class="empty">Importe o primeiro relatório do MetaTrader para ver o painel.<br><br>Depois, importe um novo relatório toda semana: o painel compara com o anterior e mostra o lucro da semana, pronto para dividir.</div>'+backupHtml()+'</div>';bindBackup();return}
     if(!accs.includes(selAcc))selAcc=accs[0];
     const list=withDeltas(series(selAcc)); const r=list[list.length-1]; const cur=r.currency;
     const wk=r.weekProfit;
     const winShare=r.grossProfit!=null&&r.grossLoss!=null&&(r.grossProfit-r.grossLoss)>0?r.grossProfit/(r.grossProfit-r.grossLoss)*100:null;
     const kpi=(t,v,c,sub)=>'<div class="kpi"><small>'+t+'</small><b class="'+(c||'')+'">'+v+'</b>'+(sub?'<small style="margin:4px 0 0">'+sub+'</small>':'')+'</div>';
     const months=Object.keys(r.monthly||{}).sort();
-    let h='<div class="card hero" style="margin-bottom:16px">'+
+    let h='<div class="card hero">'+
       '<h2><span>'+(accs.length>1?'<select id="accSel" class="accsel">'+accs.map(a=>'<option'+(a===selAcc?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select>':'Conta '+esc(r.account))+
         (r.type?' <span class="pill">'+esc(r.type)+'</span>':'')+'</span><span class="cn">'+esc(r.broker||'')+'</span></h2>'+
       '<div class="hint" style="margin:-8px 0 12px">Último relatório: '+fdate(r.reportDate)+' · '+list.length+' importaç'+(list.length>1?'ões':'ão')+'</div>'+
@@ -816,7 +824,8 @@ const MT5 = (function(){
         kpi('Lucro líquido total',sgn(r.total,cur),cls(r.total))+
       '</div>'+
       '<div class="btns"><button class="btn gold" id="bTotal">➗ Dividir lucro total</button><button class="btn ghost" id="bSplit" '+(r.prev&&wk>0?'':'disabled style="opacity:.5"')+'>Só o da semana</button></div></div>';
-    h+='<div class="card" style="margin-bottom:16px"><h2>Indicadores <span class="cn">指标</span></h2><div class="kgrid">'+
+    $('#dashHero').innerHTML=h; h='';
+    h+='<div class="card span2"><h2>Indicadores <span class="cn">指标</span></h2><div class="kgrid wide">'+
       kpi('Ganho (crescimento)',pc(r.gain),cls(r.gain))+kpi('Drawdown máximo',pc(r.maxDD),r.maxDD>20?'neg':'')+
       kpi('Lucro bruto',money(r.grossProfit,cur),'pos')+kpi('Perda bruta',money(r.grossLoss,cur),'neg')+
       kpi('Profit factor',r.profitFactor==null?'—':n2(r.profitFactor),'',r.profitFactor!=null?(r.profitFactor>=1.5?'bom (acima de 1,5)':r.profitFactor>=1?'positivo':'negativo'):'')+
@@ -826,13 +835,14 @@ const MT5 = (function(){
       kpi('Depósitos',money(r.deposits,cur),'',r.depositsCount!=null?r.depositsCount+' depósito(s)':'')+kpi('Saques',money(r.withdrawals,cur),'',r.withdrawalsCount!=null?r.withdrawalsCount+' saque(s)':'')+
       kpi('Atividade de trading',pc(r.activity))+kpi('Swaps + comissões',money((r.swaps||0)+(r.commissions||0),cur))+
       '</div>'+(winShare!=null?'<div class="hint" style="margin-top:14px">Lucro bruto × perda bruta</div><div class="bar" style="margin-top:6px"><i style="width:'+winShare+'%;background:var(--green)"></i><i style="width:'+(100-winShare)+'%;background:var(--danger)"></i></div><div class="hint">'+pc(winShare)+' do volume financeiro foi de ganhos</div>':'')+'</div>';
-    if(r.curve)h+=dailyHtml(r,cur); else h+='<div class="card" style="margin-bottom:16px"><h2>Evolução do saldo <span class="cn">余额走势</span></h2>'+lineChart(list.map(x=>({l:fdate(x.reportDate),v:x.balance})),cur)+'</div>';
-    if(list.length>1)h+='<div class="card" style="margin-bottom:16px"><h2>Lucro por importação <span class="cn">每周利润</span></h2>'+barChart(list.slice(1).map(x=>({l:fdate(x.reportDate),v:x.weekProfit||0})))+'</div>';
-    if(months.length)h+='<div class="card" style="margin-bottom:16px"><h2>Resultado por mês <span class="cn">月度</span></h2><div class="tbl"><div class="tr th"><span>Mês</span><span>Ganho</span><span>Resultado</span></div>'+
+    if(r.curve)h+=dailyHtml(r,cur); else h+='<div class="card"><h2>Evolução do saldo <span class="cn">余额走势</span></h2>'+lineChart(list.map(x=>({l:fdate(x.reportDate),v:x.balance})),cur)+'</div>';
+    if(list.length>1)h+='<div class="card"><h2>Lucro por importação <span class="cn">每周利润</span></h2>'+barChart(list.slice(1).map(x=>({l:fdate(x.reportDate),v:x.weekProfit||0})))+'</div>';
+    h+='<div class="stack">';
+    if(months.length)h+='<div class="card"><h2>Resultado por mês <span class="cn">月度</span></h2><div class="tbl"><div class="tr th"><span>Mês</span><span>Ganho</span><span>Resultado</span></div>'+
       months.map(k=>{const m=r.monthly[k];const [y,mm]=k.split('-');return '<div class="tr"><span>'+MN[+mm-1]+'/'+y+'</span><span class="'+cls(m.pct)+'">'+pc(m.pct)+'</span><span class="'+cls(m.profit)+'">'+(m.profit==null?'—':sgn(m.profit,cur))+'</span></div>'}).join('')+
       '</div><div class="hint">Valores do relatório (o MT5 arredonda o resultado mensal, ex.: 1.68k).</div></div>';
     h+='<div class="card"><h2>Importações <span class="cn">记录</span></h2><div class="tbl"><div class="tr th t4"><span>Data</span><span>Saldo</span><span>Lucro período</span><span></span></div>'+
-      list.slice().reverse().map(x=>'<div class="tr t4"><span>'+fdate(x.reportDate)+'</span><span>'+n2(x.balance)+'</span><span class="'+cls(x.weekProfit)+'">'+(x.weekProfit==null?'—':(x.weekProfit>0?'+':'')+n2(x.weekProfit))+'</span><span><button class="x" data-rm="'+esc(x.id)+'" title="Excluir">×</button></span></div>').join('')+'</div>'+backupHtml()+'</div>';
+      list.slice().reverse().map(x=>'<div class="tr t4"><span>'+fdate(x.reportDate)+'</span><span>'+n2(x.balance)+'</span><span class="'+cls(x.weekProfit)+'">'+(x.weekProfit==null?'—':(x.weekProfit>0?'+':'')+n2(x.weekProfit))+'</span><span><button class="x" data-rm="'+esc(x.id)+'" title="Excluir">×</button></span></div>').join('')+'</div>'+backupHtml()+'</div></div>';
     $('#dash').innerHTML=h;
     const sel=$('#accSel'); if(sel)sel.onchange=e=>{selAcc=e.target.value;store.set('selAcc',selAcc);renderDash()};
     $('#bTotal').onclick=()=>fillFrom(r,false);
