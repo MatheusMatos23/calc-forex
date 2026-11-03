@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#0E0F13">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -523,13 +525,13 @@
   $('#feePct').value=state.feePct;
   $('#feePct').addEventListener('input',e=>{state.feePct=e.target.value;store.set('feePct',state.feePct);render()});
   function bindVals(){[[capEl,'capital'],[lucEl,'lucro']].forEach(([el,k])=>el.value=state[k]?((k==='lucro'&&state.sinal<0)?'-':'')+(state[k]/100).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')}
-  function setSrc(t){state.src=t;store.set('src',t);const h=$('#srcHint');if(h)h.innerHTML=t?'📄 '+t+' — você pode editar manualmente. Para prejuízo, toque em ±.':'Preenchido automaticamente ao importar o relatório no <b>Painel</b>. Para prejuízo, toque em ± ou digite o sinal de menos.'}
+  function setSrc(t){state.src=t;store.set('src',t);const h=$('#srcHint');if(h)h.innerHTML=t?'📄 '+String(t).replace(/[<>&"]/g,'')+' — você pode editar manualmente. Para prejuízo, toque em ±.':'Preenchido automaticamente ao importar o relatório no <b>Painel</b>. Para prejuízo, toque em ± ou digite o sinal de menos.'}
 
   renderRules(); renderHist(); render(); setSrc(state.src);
   window.FX={store,toast,go,
     loadSplit(o){setSrc(o.src||null);state.cur=o.cur;state.capital=Math.round((o.capital||0)*100);state.lucro=Math.round(Math.abs(o.lucro)*100);state.sinal=o.lucro<0?-1:1;
       ['cur','capital','lucro','sinal'].forEach(k=>store.set(k,state[k]));bindVals();render();if(!o.silent){go('calc');toast('Lucro enviado para a divisão ✓')}},
-    setRules(r){state.rules=r;store.set('rules',r);renderRules();render()}};
+    setRules(r){if(!Array.isArray(r))return;r=r.slice(0,20).map(x=>({label:String(x&&x.label||'Parte').slice(0,40),pct:Number.isFinite(+x.pct)?+x.pct:0,people:Array.isArray(x&&x.people)?x.people.slice(0,20).map(p=>String(p).slice(0,40)):[]}));state.rules=r;store.set('rules',r);renderRules();render()}};
 
   // PWA (funciona quando hospedado no GitHub Pages; ignorado onde não é permitido)
   try{if('serviceWorker' in navigator && location.protocol==='https:' && /github\.io$/.test(location.hostname)){navigator.serviceWorker.register('sw.js').catch(()=>{})}}catch(e){}
@@ -702,14 +704,14 @@ const MT5 = (function(){
     if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
     if(libP)return libP;
     libP=new Promise((res,rej)=>{const s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      s.onload=()=>{try{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}catch(e){}res(window.pdfjsLib)};
+      s.src='lib/pdf.min.js';
+      s.onload=()=>{try{window.pdfjsLib.GlobalWorkerOptions.workerSrc='lib/pdf.worker.min.js'}catch(e){}res(window.pdfjsLib)};
       s.onerror=()=>{libP=null;rej(new Error('Não foi possível carregar o leitor de PDF (sem internet?)'))};document.head.appendChild(s)});
     return libP;
   }
   async function readFile(file){
     const lib=await loadLib(); const buf=new Uint8Array(await file.arrayBuffer());
-    const pdf=await lib.getDocument({data:buf}).promise;
+    const pdf=await lib.getDocument({data:buf,isEvalSupported:false,disableFontFace:true}).promise;
     let title='';try{const m=await pdf.getMetadata();title=(m.info&&m.info.Title)||''}catch(e){}
     const pg=await pdf.getPage(1); const tc=await pg.getTextContent();
     const items=tc.items.map(i=>({x:i.transform[4],y:i.transform[5],s:i.str}));
@@ -725,7 +727,35 @@ const MT5 = (function(){
   if(!window.FX)return;
   const {store,toast}=window.FX;
   const $=s=>document.querySelector(s);
-  let reports=window.VIEWKEY?[]:store.get('reports',[]);
+  /* ---- saneamento: todo dado externo (PDF, backup, painel remoto) passa por aqui ---- */
+  const NUMF=['gain','activity','deposits','depositsCount','withdrawals','withdrawalsCount','corrections','credit','grossProfit','grossLoss','swaps','commissions','dividends','total','sharpe','profitFactor','recoveryFactor','maxDD','maxLoad','tradesWeek','growth','drawdown','balance','equity'];
+  const nOrNull=v=>{v=typeof v==='number'?v:(v==null||v===''?NaN:Number(v));return Number.isFinite(v)?v:null};
+  const str=(v,max)=>String(v==null?'':v).replace(/[<>"'&`\\]/g,'').slice(0,max||80);
+  const DT=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
+  function cleanReport(r){
+    if(!r||typeof r!=='object')return null;
+    const o={account:str(r.account,32).replace(/[^\w.-]/g,''),reportDate:String(r.reportDate||'')};
+    if(!o.account||!DT.test(o.reportDate))return null;
+    o.id=o.account+'|'+o.reportDate;
+    ['accountLabel','broker','server','fileName'].forEach(k=>{if(r[k]!=null)o[k]=str(r[k],80)});
+    o.type=/^(REAL|DEMO|CONTEST)$/.test(r.type)?r.type:'';
+    o.currency=/^[A-Z]{3,5}$/.test(r.currency)?r.currency:'USD';
+    o.holdTime=/^[\w .:]{0,12}$/.test(r.holdTime||'')?(r.holdTime||''):'';
+    if(DT.test(r.historyFrom||''))o.historyFrom=r.historyFrom;
+    ['periodFrom','periodTo'].forEach(k=>{if(/^\d{2}\.\d{2}\.\d{4}$/.test(r[k]||''))o[k]=r[k]});
+    if(r.importedAt&&!isNaN(Date.parse(r.importedAt)))o.importedAt=new Date(r.importedAt).toISOString();
+    NUMF.forEach(k=>{o[k]=nOrNull(r[k])});
+    o.monthly={};if(r.monthly&&typeof r.monthly==='object')Object.keys(r.monthly).forEach(k=>{if(/^\d{4}-\d{2}$/.test(k)&&r.monthly[k])o.monthly[k]={pct:nOrNull(r.monthly[k].pct),profit:nOrNull(r.monthly[k].profit)}});
+    const c=r.curve;
+    if(c&&typeof c==='object'&&DT.test(c.t0||'')&&Array.isArray(c.series)&&Array.isArray(c.daily)){
+      o.curve={t0:c.t0,quality:c.quality==='ajustado'?'ajustado':'ok',
+        series:c.series.filter(Array.isArray).slice(0,5000).map(p=>[nOrNull(p[0])||0,nOrNull(p[1])||0,nOrNull(p[2])]),
+        daily:c.daily.filter(x=>x&&/^\d{4}-\d{2}-\d{2}$/.test(x.d)).slice(0,3700).map(x=>({d:x.d,close:nOrNull(x.close)||0,profit:nOrNull(x.profit)||0,flow:nOrNull(x.flow)||0,pct:nOrNull(x.pct),eqMin:nOrNull(x.eqMin)}))};
+    }
+    return o;
+  }
+  const cleanList=a=>Array.isArray(a)?a.map(cleanReport).filter(Boolean):[];
+  let reports=window.VIEWKEY?[]:cleanList(store.get('reports',[]));
   let selAcc=store.get('selAcc','');
   let pending=null;
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -758,7 +788,7 @@ const MT5 = (function(){
     try{
       const d=await MT5.readFile(f);
       if(d.balance==null&&d.total==null)throw new Error('Não encontrei os dados do relatório neste PDF. Ele precisa ser o relatório (Report) exportado do MetaTrader 5.');
-      d.fileName=f.name; pending=d; $('#impMsg').innerHTML=''; renderPreview();
+      d.fileName=f.name; const cd=cleanReport(d); if(!cd)throw new Error('Não consegui identificar a conta/data neste relatório.'); pending=cd; $('#impMsg').innerHTML=''; renderPreview();
     }catch(e){pending=null;$('#impMsg').innerHTML='<div class="warn">'+esc(e.message||e)+'</div><div class="btns" style="grid-template-columns:1fr"><button class="btn ghost" onclick="document.getElementById(\'impModal\').classList.remove(\'on\')">Fechar</button></div>'}
   }
   $('#pdfIn').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
@@ -952,7 +982,7 @@ const MT5 = (function(){
         if(!r.ok)throw new Error(r.status===404?'O painel ainda não foi publicado.':'Não foi possível buscar os dados (sem internet?).');env=await r.json()}
       let data; try{data=await decryptObj(env,window.VIEWKEY)}catch(e){throw new Error('Este link não é mais válido. Peça um link novo.')}
       remoteErr=null;
-      if(data.updatedAt!==remoteAt){remoteAt=data.updatedAt;reports=data.reports||[];renderDash()} else renderViewStatus();
+      if(data.updatedAt!==remoteAt){remoteAt=isNaN(Date.parse(data.updatedAt))?null:data.updatedAt;reports=cleanList(data.reports);renderDash()} else renderViewStatus();
     }catch(e){remoteErr=e.message||String(e);if(!reports.length)renderDash();else renderViewStatus()}
   }
   function renderViewStatus(){const el=document.getElementById('viewStatus');if(!el)return;
@@ -1024,7 +1054,7 @@ const MT5 = (function(){
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='forex-split-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);toast('Backup gerado')};
     const i=$('#bImp'); if(i)i.onchange=async ev=>{const f=ev.target.files[0];if(!f)return;
       try{const j=JSON.parse(await f.text());if(!Array.isArray(j.reports))throw 0;
-        const m=new Map(reports.map(r=>[r.id,r]));j.reports.forEach(r=>m.set(r.id,r));reports=[...m.values()];save();
+        const m=new Map(reports.map(r=>[r.id,r]));cleanList(j.reports).forEach(r=>m.set(r.id,r));reports=[...m.values()];save();
         if(j.rules&&window.FX.setRules)window.FX.setRules(j.rules);renderDash();toast('Backup restaurado ✓')}
       catch(e){toast('Arquivo de backup inválido')}};
   }
