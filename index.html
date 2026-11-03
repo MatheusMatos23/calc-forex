@@ -105,6 +105,27 @@
   .hi small{color:var(--muted);font-size:11.5px;display:block}
   .hi b{font-size:15px}
   .empty{color:var(--muted);text-align:center;padding:30px 10px;font-size:14px}
+  .pgrid{display:grid;gap:16px}
+  @media(min-width:860px){.pgrid{grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);align-items:start}}
+  .drop{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;border:2px dashed #3a3f4d;border-radius:16px;padding:26px 14px;cursor:pointer;background:var(--card2);transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--gold);background:#f2c14e0d}
+  .drop .dropi{font-size:34px}.drop b{font-size:15px}.drop span{color:var(--muted);font-size:13px}.drop small{color:var(--muted);font-size:11.5px;margin-top:8px}
+  .prev{margin-top:14px;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .prevh{font-weight:700;margin-bottom:8px}
+  .pr{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:6px 0;border-bottom:1px solid #ffffff08}
+  .pr span{color:var(--muted)} .pr b{text-align:right}
+  .kgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(min-width:600px){.kgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .kgrid .kpi b{font-size:17px}
+  .chart{width:100%;height:auto;display:block}.chart .ax{fill:#9097A6;font:600 10.5px Inter,sans-serif}
+  @media(max-width:600px){.chart .ax{font-size:19px}}
+  .tbl{display:grid;gap:4px}
+  .tr{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;align-items:center;font-size:13.5px;padding:8px 10px;border-radius:10px;background:var(--card2)}
+  .tr.t4{grid-template-columns:1.3fr 1fr 1fr 38px}
+  .tr span:not(:first-child){text-align:right}.tr.th{background:transparent;color:var(--muted);font-size:11.5px;font-weight:700;padding:2px 10px}
+  .tr .x{width:30px;height:30px;font-size:15px}
+  .accsel{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font:700 14px Inter}
+  nav.tabs button{max-width:150px}
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--gold);color:#1a1405;font-weight:700;font-size:14px;
     padding:10px 18px;border-radius:99px;opacity:0;transition:.25s;pointer-events:none;z-index:10}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -181,6 +202,25 @@
     </div>
   </section>
 
+  <!-- PAINEL -->
+  <section class="view" id="v-panel">
+    <div class="pgrid">
+      <div class="card">
+        <h2>Importar relatório MT5 <span class="cn">导入报告</span></h2>
+        <label class="drop" id="drop">
+          <input type="file" id="pdfIn" accept="application/pdf,.pdf" hidden>
+          <div class="dropi">📄</div>
+          <b>Toque para escolher o PDF</b>
+          <span>ou arraste o arquivo aqui</span>
+          <small>MetaTrader 5 → Relatório → compartilhar/salvar como PDF</small>
+        </label>
+        <div id="impMsg"></div>
+        <div id="preview"></div>
+      </div>
+      <div id="dash"></div>
+    </div>
+  </section>
+
   <!-- CONFIG -->
   <section class="view" id="v-cfg">
     <div class="card" style="max-width:640px;margin:0 auto">
@@ -208,6 +248,7 @@
 
 <nav class="tabs">
   <button data-v="calc" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="2.5" width="16" height="19" rx="3"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>Calcular</button>
+  <button data-v="panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 20h18"/><path d="M6 16v-4M11 16V8M16 16v-6M21 4l-5 5-4-3-6 5"/></svg>Painel</button>
   <button data-v="cfg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Divisão</button>
   <button data-v="hist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>Histórico</button>
 </nav>
@@ -422,10 +463,264 @@
   function bindVals(){[[capEl,'capital'],[lucEl,'lucro']].forEach(([el,k])=>el.value=state[k]?(state[k]/100).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')}
 
   renderRules(); renderHist(); render();
+  window.FX={store,toast,go,
+    loadSplit(o){state.cur=o.cur;state.capital=Math.round((o.capital||0)*100);state.lucro=Math.round(Math.abs(o.lucro)*100);state.sinal=o.lucro<0?-1:1;
+      ['cur','capital','lucro','sinal'].forEach(k=>store.set(k,state[k]));bindVals();render();go('calc');toast('Lucro enviado para a divisão ✓')},
+    setRules(r){state.rules=r;store.set('rules',r);renderRules();render()}};
 
   // PWA (funciona quando hospedado no GitHub Pages; ignorado onde não é permitido)
   try{if('serviceWorker' in navigator && location.protocol==='https:' && /github\.io$/.test(location.hostname)){navigator.serviceWorker.register('sw.js').catch(()=>{})}}catch(e){}
 })();
 </script>
+<script>
+/* ====== PARSER DO RELATÓRIO METATRADER 5 (PDF) ====== */
+const MT5 = (function(){
+  const MONTHS={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12,
+    Fev:2,Abr:4,Mai:5,Ago:8,Set:9,Out:10,Dez:12};
+  const L={ // rótulos aceitos (inglês + português)
+    currency:['Currency','Moeda'], gain:['Gain','Ganho'], activity:['Trading Activity','Atividade de Negociação','Atividade'],
+    deposits:['Deposits','Depósitos'], withdrawals:['Withdrawals','Saques','Retiradas'], dividendsTop:['Dividends','Dividendos'],
+    corrections:['Corrections','Correções'], credit:['Credit','Crédito'],
+    grossProfit:['Gross Profit','Lucro Bruto'], grossLoss:['Gross Loss','Perda Bruta','Prejuízo Bruto'],
+    swaps:['Swaps','Swap'], commissions:['Commissions','Comissões'], total:['Total'],
+    sharpe:['Sharp Ratio','Sharpe Ratio','Índice de Sharpe','Razão de Sharpe'], profitFactor:['Profit Factor','Fator de Lucro'],
+    recoveryFactor:['Recovery Factor','Fator de Recuperação'], maxDD:['Max. Drawdown','Rebaixamento Máx.','Drawdown Máx.'],
+    maxLoad:['Max. Deposit Load','Carga Máx. do Depósito','Carga Máx.'], tradesWeek:['Trades per Week','Negociações por Semana','Trades por Semana'],
+    holdTime:['Average Hold Ti','Average Hold Time','Tempo Médio'],
+    growth:['Growth','Crescimento'], drawdown:['Drawdown','Rebaixamento'], balance:['Balance','Saldo','Balanço'], equity:['Equity','Patrimônio','Capital Líquido']
+  };
+  function num(s){
+    if(s==null)return null; s=String(s).replace(/[\s +]/g,'').replace(/%$/,'');
+    let mult=1; if(/k$/i.test(s)){mult=1e3;s=s.slice(0,-1)} else if(/M$/.test(s)){mult=1e6;s=s.slice(0,-1)}
+    if(s.includes(',')&&!s.includes('.'))s=s.replace(',','.'); else s=s.replace(/,/g,'');
+    const v=parseFloat(s); return isNaN(v)?null:v*mult;
+  }
+  function parse(items,title){
+    items=items.map(i=>({x:i.x,y:i.y,s:i.s.trim()})).filter(i=>i.s);
+    const find=(names,pick)=>{const c=items.filter(i=>names.some(n=>i.s.toLowerCase()===n.toLowerCase()));
+      if(!c.length)return null; return pick==='lowest'?c.reduce((a,b)=>a.y<b.y?a:b):c.reduce((a,b)=>a.y>b.y?a:b)};
+    const nextRight=lab=>{const r=items.filter(i=>Math.abs(i.y-lab.y)<2&&i.x>lab.x+5&&/[A-Za-zÀ-ú]{3,}/.test(i.s)).sort((a,b)=>a.x-b.x);return r.length?r[0].x:lab.x+170};
+    const band=(dy0,dy1,x0,x1,lab)=>items.filter(i=>i.y-lab.y>=dy0&&i.y-lab.y<=dy1&&i.x>=x0&&i.x<x1).sort((a,b)=>b.y-a.y||a.x-b.x);
+    const join=arr=>arr.map(i=>i.s).join(' ').replace(/\s+\(\s*/,' (').replace(/\s+\)/,')').trim();
+    const above=(names,pick)=>{const l=find(names,pick);if(!l)return null;const r=band(7,22,l.x-16,Math.min(nextRight(l)-12,l.x+75),l);
+      if(!r.length)return null;const y=r[0].y;return join(r.filter(i=>Math.abs(i.y-y)<2))};
+    const below=(names)=>{const l=find(names);if(!l)return null;const r=band(-24,-7,l.x-16,l.x+90,l);return r.length?r[0].s:null};
+    const meter=(names)=>{const l=find(names);if(!l)return null;const xm=Math.min(nextRight(l),l.x+175)-3;
+      const r=band(-42,-22,l.x-3,xm,l);if(!r.length)return null;const y=r[0].y;return join(r.filter(i=>Math.abs(i.y-y)<1.5))};
+    const d={};
+    // cabeçalho
+    const accItem=items.find(i=>/^\d{5,}$/.test(i.s)&&i.y>items.reduce((m,i)=>Math.max(m,i.y),0)-30);
+    d.account=accItem?accItem.s:((title.match(/(\d{6,})/)||[])[1]||'');
+    const accLine=accItem?items.filter(i=>Math.abs(i.y-accItem.y)<4&&i.x<accItem.x).map(i=>i.s).join(' '):'';
+    d.accountLabel=(accLine+' '+d.account).trim();
+    if(accItem){const b=items.filter(i=>accItem.y-i.y>8&&accItem.y-i.y<25&&i.x<accItem.x+40).sort((a,b)=>b.y-a.y)[0];d.broker=b?b.s:''}
+    const tp=items.find(i=>/^(REAL|DEMO|CONTEST)$/i.test(i.s)); d.type=tp?tp.s.toUpperCase():'';
+    const srv=(title.match(/[–-]\s*([A-Za-z0-9.-]+)\s*\[/)||[])[1]; d.server=srv||'';
+    const per=title.match(/\[(\d{2}\.\d{2}\.\d{4})\s*[–-]\s*(\d{2}\.\d{2}\.\d{4})\]/);
+    if(per){d.periodFrom=per[1];d.periodTo=per[2]}
+    const dates=items.map(i=>i.s).filter(s=>/^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}$/.test(s)).sort();
+    d.reportDate=dates.length?dates[dates.length-1].replace(/\./g,'-'):(per?per[2].split('.').reverse().join('-')+' 00:00':new Date().toISOString().slice(0,16).replace('T',' '));
+    if(dates.length)d.historyFrom=dates[0].replace(/\./g,'-');
+    // linha do topo
+    d.currency=above(L.currency); d.gain=num(above(L.gain)); d.activity=num(above(L.activity));
+    const dep=above(L.deposits)||''; d.deposits=num(dep.replace(/\(.*\)/,'')); d.depositsCount=num((dep.match(/\((\d+)\)/)||[])[1]);
+    const wd=above(L.withdrawals)||''; d.withdrawals=num(wd.replace(/\(.*\)/,'')); d.withdrawalsCount=num((wd.match(/\((\d+)\)/)||[])[1]);
+    d.corrections=num(above(L.corrections)); d.credit=num(above(L.credit));
+    // resumo
+    d.grossProfit=num(below(L.grossProfit)); d.grossLoss=num(below(L.grossLoss));
+    d.swaps=num(above(L.swaps)); d.commissions=num(above(L.commissions)); d.dividends=num(above(L.dividendsTop,'lowest'));
+    const tot=items.filter(i=>L.total.includes(i.s)); if(tot.length){const l=tot[0];const r=band(8,26,l.x-45,l.x+45,l);d.total=r.length?num(r[0].s):null}
+    d.sharpe=num(meter(L.sharpe)); d.profitFactor=num(meter(L.profitFactor)); d.recoveryFactor=num(meter(L.recoveryFactor));
+    d.maxDD=num(meter(L.maxDD)); d.maxLoad=num(meter(L.maxLoad)); d.tradesWeek=num(meter(L.tradesWeek)); d.holdTime=meter(L.holdTime);
+    d.growth=num(above(L.growth)); d.drawdown=num(above(L.drawdown)); d.balance=num(above(L.balance)); d.equity=num(above(L.equity));
+    if(d.total==null&&d.grossProfit!=null&&d.grossLoss!=null)d.total=+(d.grossProfit+d.grossLoss).toFixed(2);
+    // tabelas mensais (1ª = crescimento %, 2ª = resultado)
+    const hdrYs=[...new Set(items.filter(i=>MONTHS[i.s]).map(i=>Math.round(i.y)))].sort((a,b)=>b-a)
+      .filter(y=>items.filter(i=>Math.round(i.y)===y&&MONTHS[i.s]).length>=6);
+    d.monthly={};
+    hdrYs.forEach((hy,ti)=>{
+      const hdr=items.filter(i=>Math.round(i.y)===hy&&MONTHS[i.s]);
+      const yearCol=items.find(i=>Math.round(i.y)===hy&&/^(Year|Ano)$/i.test(i.s));
+      const nextHy=hdrYs[ti+1]!=null?hdrYs[ti+1]:-1e9;
+      const rows=items.filter(i=>/^\d{4}$/.test(i.s)&&i.y<hy&&i.y>Math.max(nextHy,hy-120)&&i.x<70);
+      rows.forEach(r=>{
+        items.filter(i=>Math.abs(i.y-r.y)<2&&i.x>r.x+20&&(!yearCol||i.x<yearCol.x-15)&&num(i.s)!=null).forEach(v=>{
+          const m=hdr.reduce((a,b)=>Math.abs(b.x-v.x)<Math.abs(a.x-v.x)?b:a);
+          const key=r.s+'-'+String(MONTHS[m.s]).padStart(2,'0');
+          d.monthly[key]=d.monthly[key]||{}; d.monthly[key][ti===0?'pct':'profit']=num(v.s);
+        });
+      });
+    });
+    return d;
+  }
+  let libP=null;
+  function loadLib(){
+    if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+    if(libP)return libP;
+    libP=new Promise((res,rej)=>{const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload=()=>{try{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}catch(e){}res(window.pdfjsLib)};
+      s.onerror=()=>{libP=null;rej(new Error('Não foi possível carregar o leitor de PDF (sem internet?)'))};document.head.appendChild(s)});
+    return libP;
+  }
+  async function readFile(file){
+    const lib=await loadLib(); const buf=new Uint8Array(await file.arrayBuffer());
+    const pdf=await lib.getDocument({data:buf}).promise;
+    let title='';try{const m=await pdf.getMetadata();title=(m.info&&m.info.Title)||''}catch(e){}
+    const pg=await pdf.getPage(1); const tc=await pg.getTextContent();
+    const items=tc.items.map(i=>({x:i.transform[4],y:i.transform[5],s:i.str}));
+    return parse(items,title);
+  }
+  return {parse,readFile,num};
+})();
+
+/* ====== PAINEL ====== */
+(function(){
+  if(!window.FX)return;
+  const {store,toast}=window.FX;
+  const $=s=>document.querySelector(s);
+  let reports=store.get('reports',[]);
+  let selAcc=store.get('selAcc','');
+  let pending=null;
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const n2=v=>v==null||isNaN(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const money=(v,cur)=>v==null||isNaN(v)?'—':(v<0?'− ':'')+(cur&&cur!=='USD'?'':'US$ ')+n2(Math.abs(v))+(cur&&cur!=='USD'?' '+cur:'');
+  const sgn=(v,cur)=>v==null?'—':(v>0?'+ ':'')+money(v,cur);
+  const pc=v=>v==null||isNaN(v)?'—':v.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+  const cls=v=>v>0?'pos':(v<0?'neg':'');
+  const fdate=s=>{if(!s)return'—';const [d,t]=s.split(' ');const [y,m,dd]=d.split('-');return dd+'/'+m+'/'+y+(t?' '+t:'')};
+  const MN=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+  function save(){store.set('reports',reports)}
+  function accounts(){return [...new Set(reports.map(r=>r.account))]}
+  function series(acc){return reports.filter(r=>r.account===acc).sort((a,b)=>a.reportDate<b.reportDate?-1:1)}
+  function withDeltas(list){return list.map((r,i)=>{const p=list[i-1];
+    return {...r,prev:p||null,weekProfit:p?(r.total!=null&&p.total!=null?+(r.total-p.total).toFixed(2):null):r.total,
+      netFlow:p?((r.deposits||0)-(p.deposits||0))-((r.withdrawals||0)-(p.withdrawals||0)):(r.deposits||0)-(r.withdrawals||0)}})}
+
+  // ---- importação ----
+  async function handleFile(f){
+    if(!f)return;
+    $('#impMsg').innerHTML='<div class="warn ok">Lendo '+esc(f.name)+'…</div>'; $('#preview').innerHTML='';
+    try{
+      const d=await MT5.readFile(f);
+      if(d.balance==null&&d.total==null)throw new Error('Não encontrei os dados do relatório neste PDF. Ele precisa ser o relatório (Report) exportado do MetaTrader 5.');
+      d.fileName=f.name; pending=d; $('#impMsg').innerHTML=''; renderPreview();
+    }catch(e){pending=null;$('#impMsg').innerHTML='<div class="warn">'+esc(e.message||e)+'</div>'}
+  }
+  $('#pdfIn').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
+  const drop=$('#drop');
+  ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+  drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)handleFile(f)});
+
+  function renderPreview(){
+    const d=pending; if(!d){$('#preview').innerHTML='';return}
+    const dup=reports.find(r=>r.account===d.account&&r.reportDate===d.reportDate);
+    const prev=series(d.account).filter(r=>r.reportDate<d.reportDate).pop();
+    const wk=prev&&d.total!=null&&prev.total!=null?d.total-prev.total:null;
+    const rows=[['Conta',esc(d.accountLabel||d.account)+(d.type?' · '+d.type:'')],['Corretora',esc(d.broker)],['Data do relatório',fdate(d.reportDate)],
+      ['Saldo',money(d.balance,d.currency)],['Lucro líquido total',sgn(d.total,d.currency)],['Ganho',pc(d.gain)],['Drawdown máx.',pc(d.maxDD)],
+      ['Depósitos',money(d.deposits,d.currency)+(d.depositsCount!=null?' ('+d.depositsCount+')':'')],['Saques',money(d.withdrawals,d.currency)]];
+    if(prev)rows.push(['Lucro desde '+fdate(prev.reportDate).slice(0,10),'<b class="'+cls(wk)+'">'+sgn(wk,d.currency)+'</b>']);
+    $('#preview').innerHTML='<div class="prev"><div class="prevh">Confira os dados lidos <span class="cn">确认</span></div>'+
+      rows.map(r=>'<div class="pr"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('')+
+      (dup?'<div class="warn">Já existe uma importação desta conta com a mesma data. Confirmar vai substituí-la.</div>':'')+
+      '<div class="btns"><button class="btn ghost" id="pCancel">Cancelar</button><button class="btn gold" id="pOk">✓ Confirmar importação</button></div></div>';
+    $('#pCancel').onclick=()=>{pending=null;renderPreview()};
+    $('#pOk').onclick=()=>{
+      const d=pending; d.importedAt=new Date().toISOString(); d.id=d.account+'|'+d.reportDate;
+      reports=reports.filter(r=>r.id!==d.id); reports.push(d); save(); selAcc=d.account; store.set('selAcc',selAcc);
+      pending=null; renderPreview(); renderDash(); toast('Relatório importado ✓');
+    };
+  }
+
+  // ---- gráficos SVG ----
+  function lineChart(pts,cur){
+    if(pts.length<2)return '<div class="empty" style="padding:18px">O gráfico aparece a partir da 2ª importação.</div>';
+    const W=600,H=170,P=72,vals=pts.map(p=>p.v),mn=Math.min(...vals),mx=Math.max(...vals),rg=(mx-mn)||1;
+    const X=i=>P+i*(W-P-12)/(pts.length-1), Y=v=>H-22-(v-mn)/rg*(H-46);
+    const d=pts.map((p,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1)).join(' ');
+    const area=d+' L'+X(pts.length-1)+' '+(H-22)+' L'+X(0)+' '+(H-22)+' Z';
+    return '<svg viewBox="0 0 '+W+' '+H+'" class="chart"><defs><linearGradient id="lg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F2C14E" stop-opacity=".35"/><stop offset="1" stop-color="#F2C14E" stop-opacity="0"/></linearGradient></defs>'+
+      '<text x="4" y="'+(Y(mx)+4)+'" class="ax">'+n2(mx)+'</text><text x="4" y="'+(Y(mn)+4)+'" class="ax">'+n2(mn)+'</text>'+
+      '<path d="'+area+'" fill="url(#lg)"/><path d="'+d+'" fill="none" stroke="#F2C14E" stroke-width="2.5" stroke-linejoin="round"/>'+
+      pts.map((p,i)=>'<circle cx="'+X(i)+'" cy="'+Y(p.v)+'" r="3.5" fill="#F2C14E"><title>'+p.l+': '+n2(p.v)+'</title></circle>'+
+        ((pts.length<=10||i===0||i===pts.length-1)?'<text x="'+X(i)+'" y="'+(H-6)+'" text-anchor="middle" class="ax">'+p.l.slice(0,5)+'</text>':'')).join('')+'</svg>';
+  }
+  function barChart(pts){
+    if(!pts.length)return '';
+    const W=600,H=170,P=10,mx=Math.max(...pts.map(p=>Math.abs(p.v)),1),hasNeg=pts.some(p=>p.v<0);
+    const base=hasNeg?(H-22)/2+4:H-22, scale=hasNeg?(H-40)/2:(H-36);
+    const bw=Math.min(46,(W-2*P)/pts.length*0.6), step=(W-2*P)/pts.length;
+    return '<svg viewBox="0 0 '+W+' '+H+'" class="chart"><line x1="0" x2="'+W+'" y1="'+base+'" y2="'+base+'" stroke="#2A2E39"/>'+
+      pts.map((p,i)=>{const h=Math.abs(p.v)/mx*scale,x=P+i*step+(step-bw)/2,y=p.v>=0?base-h:base;
+        return '<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+Math.max(h,1)+'" rx="4" fill="'+(p.v>=0?'#2FBF71':'#FF5A5F')+'"><title>'+p.l+': '+n2(p.v)+'</title></rect>'+
+          (pts.length<=12?'<text x="'+(x+bw/2)+'" y="'+(p.v>=0?y-5:y+h+12)+'" text-anchor="middle" class="ax">'+(Math.abs(p.v)>=1000?(p.v/1000).toFixed(1)+'k':Math.round(p.v))+'</text><text x="'+(x+bw/2)+'" y="'+(H-6)+'" text-anchor="middle" class="ax">'+p.l.slice(0,5)+'</text>':'');}).join('')+'</svg>';
+  }
+
+  // ---- painel ----
+  function renderDash(){
+    const accs=accounts();
+    if(!accs.length){$('#dash').innerHTML='<div class="card"><h2>Painel <span class="cn">仪表板</span></h2><div class="empty">Importe o primeiro relatório do MetaTrader para ver o painel.<br><br>Depois, importe um novo relatório toda semana: o painel compara com o anterior e mostra o lucro da semana, pronto para dividir.</div>'+backupHtml()+'</div>';bindBackup();return}
+    if(!accs.includes(selAcc))selAcc=accs[0];
+    const list=withDeltas(series(selAcc)); const r=list[list.length-1]; const cur=r.currency;
+    const wk=r.weekProfit;
+    const winShare=r.grossProfit!=null&&r.grossLoss!=null&&(r.grossProfit-r.grossLoss)>0?r.grossProfit/(r.grossProfit-r.grossLoss)*100:null;
+    const kpi=(t,v,c,sub)=>'<div class="kpi"><small>'+t+'</small><b class="'+(c||'')+'">'+v+'</b>'+(sub?'<small style="margin:4px 0 0">'+sub+'</small>':'')+'</div>';
+    const months=Object.keys(r.monthly||{}).sort();
+    let h='<div class="card hero" style="margin-bottom:16px">'+
+      '<h2><span>'+(accs.length>1?'<select id="accSel" class="accsel">'+accs.map(a=>'<option'+(a===selAcc?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select>':'Conta '+esc(r.account))+
+        (r.type?' <span class="pill">'+esc(r.type)+'</span>':'')+'</span><span class="cn">'+esc(r.broker||'')+'</span></h2>'+
+      '<div class="hint" style="margin:-8px 0 12px">Último relatório: '+fdate(r.reportDate)+' · '+list.length+' importaç'+(list.length>1?'ões':'ão')+'</div>'+
+      '<div class="kpis">'+
+        '<div class="kpi big"><small>'+(r.prev?'Lucro desde a última importação ('+fdate(r.prev.reportDate).slice(0,10)+')':'Lucro total (1ª importação)')+' · 本周利润</small><b class="'+cls(wk)+'" style="'+(wk>0?'color:var(--green)':'')+'">'+sgn(wk,cur)+'</b>'+
+        (r.prev&&r.netFlow?'<small style="margin:4px 0 0">Movimentação no período (depósitos − saques): '+sgn(r.netFlow,cur)+'</small>':'')+'</div>'+
+        kpi('Saldo · 余额',money(r.balance,cur),'',r.equity!=null&&Math.abs(r.equity-r.balance)>0.005?'Equity '+money(r.equity,cur):'')+
+        kpi('Lucro líquido total',sgn(r.total,cur),cls(r.total))+
+      '</div>'+
+      '<div class="btns" style="grid-template-columns:1fr"><button class="btn gold" id="bSplit" '+(wk>0?'':'disabled style="opacity:.5"')+'>➗ Dividir este lucro</button></div></div>';
+    h+='<div class="card" style="margin-bottom:16px"><h2>Indicadores <span class="cn">指标</span></h2><div class="kgrid">'+
+      kpi('Ganho (crescimento)',pc(r.gain),cls(r.gain))+kpi('Drawdown máximo',pc(r.maxDD),r.maxDD>20?'neg':'')+
+      kpi('Lucro bruto',money(r.grossProfit,cur),'pos')+kpi('Perda bruta',money(r.grossLoss,cur),'neg')+
+      kpi('Profit factor',r.profitFactor==null?'—':n2(r.profitFactor),'',r.profitFactor!=null?(r.profitFactor>=1.5?'bom (acima de 1,5)':r.profitFactor>=1?'positivo':'negativo'):'')+
+      kpi('Recovery factor',r.recoveryFactor==null?'—':n2(r.recoveryFactor))+
+      kpi('Sharpe ratio',r.sharpe==null?'—':n2(r.sharpe))+kpi('Carga máx. do depósito',pc(r.maxLoad))+
+      kpi('Operações por semana',r.tradesWeek==null?'—':String(r.tradesWeek))+kpi('Tempo médio da operação',esc(r.holdTime||'—'))+
+      kpi('Depósitos',money(r.deposits,cur),'',r.depositsCount!=null?r.depositsCount+' depósito(s)':'')+kpi('Saques',money(r.withdrawals,cur),'',r.withdrawalsCount!=null?r.withdrawalsCount+' saque(s)':'')+
+      kpi('Atividade de trading',pc(r.activity))+kpi('Swaps + comissões',money((r.swaps||0)+(r.commissions||0),cur))+
+      '</div>'+(winShare!=null?'<div class="hint" style="margin-top:14px">Lucro bruto × perda bruta</div><div class="bar" style="margin-top:6px"><i style="width:'+winShare+'%;background:var(--green)"></i><i style="width:'+(100-winShare)+'%;background:var(--danger)"></i></div><div class="hint">'+pc(winShare)+' do volume financeiro foi de ganhos</div>':'')+'</div>';
+    h+='<div class="card" style="margin-bottom:16px"><h2>Evolução do saldo <span class="cn">余额走势</span></h2>'+lineChart(list.map(x=>({l:fdate(x.reportDate),v:x.balance})),cur)+'</div>';
+    if(list.length>1)h+='<div class="card" style="margin-bottom:16px"><h2>Lucro por importação <span class="cn">每周利润</span></h2>'+barChart(list.slice(1).map(x=>({l:fdate(x.reportDate),v:x.weekProfit||0})))+'</div>';
+    if(months.length)h+='<div class="card" style="margin-bottom:16px"><h2>Resultado por mês <span class="cn">月度</span></h2><div class="tbl"><div class="tr th"><span>Mês</span><span>Ganho</span><span>Resultado</span></div>'+
+      months.map(k=>{const m=r.monthly[k];const [y,mm]=k.split('-');return '<div class="tr"><span>'+MN[+mm-1]+'/'+y+'</span><span class="'+cls(m.pct)+'">'+pc(m.pct)+'</span><span class="'+cls(m.profit)+'">'+(m.profit==null?'—':sgn(m.profit,cur))+'</span></div>'}).join('')+
+      '</div><div class="hint">Valores do relatório (o MT5 arredonda o resultado mensal, ex.: 1.68k).</div></div>';
+    h+='<div class="card"><h2>Importações <span class="cn">记录</span></h2><div class="tbl"><div class="tr th t4"><span>Data</span><span>Saldo</span><span>Lucro período</span><span></span></div>'+
+      list.slice().reverse().map(x=>'<div class="tr t4"><span>'+fdate(x.reportDate)+'</span><span>'+n2(x.balance)+'</span><span class="'+cls(x.weekProfit)+'">'+(x.weekProfit==null?'—':(x.weekProfit>0?'+':'')+n2(x.weekProfit))+'</span><span><button class="x" data-rm="'+esc(x.id)+'" title="Excluir">×</button></span></div>').join('')+'</div>'+backupHtml()+'</div>';
+    $('#dash').innerHTML=h;
+    const sel=$('#accSel'); if(sel)sel.onchange=e=>{selAcc=e.target.value;store.set('selAcc',selAcc);renderDash()};
+    $('#bSplit').onclick=()=>{if(!(wk>0))return;
+      const capital=r.prev?r.prev.balance:(r.deposits||r.balance-wk);
+      window.FX.loadSplit({cur:cur==='USD'?'USD':(cur==='USDT'?'USDT':'USD'),capital,lucro:wk});};
+    $('#dash').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
+      if(b.dataset.arm!=='1'){b.dataset.arm='1';b.textContent='?';b.style.color='var(--danger)';setTimeout(()=>{b.dataset.arm='';b.textContent='×';b.style.color=''},2500);return}
+      reports=reports.filter(x=>x.id!==b.dataset.rm);save();renderDash();toast('Importação removida')});
+    bindBackup();
+  }
+  function backupHtml(){return '<div class="btns"><button class="btn ghost" id="bExp">⬇ Backup dos dados</button><label class="btn ghost" style="margin:0">⬆ Restaurar backup<input type="file" id="bImp" accept=".json,application/json" hidden></label></div><div class="hint">Os dados ficam salvos neste aparelho. Use o backup para levar para outro celular/computador.</div>'}
+  function bindBackup(){
+    const e=$('#bExp'); if(e)e.onclick=()=>{
+      const blob=new Blob([JSON.stringify({app:'forex-split',v:1,reports,rules:store.get('rules',null)},null,1)],{type:'application/json'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='forex-split-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);toast('Backup gerado')};
+    const i=$('#bImp'); if(i)i.onchange=async ev=>{const f=ev.target.files[0];if(!f)return;
+      try{const j=JSON.parse(await f.text());if(!Array.isArray(j.reports))throw 0;
+        const m=new Map(reports.map(r=>[r.id,r]));j.reports.forEach(r=>m.set(r.id,r));reports=[...m.values()];save();
+        if(j.rules&&window.FX.setRules)window.FX.setRules(j.rules);renderDash();toast('Backup restaurado ✓')}
+      catch(e){toast('Arquivo de backup inválido')}};
+  }
+  renderDash();
+})();
+</script>
+
 </body>
 </html>
