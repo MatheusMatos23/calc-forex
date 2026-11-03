@@ -123,6 +123,9 @@
   .tbl{display:grid;gap:4px}
   .tr{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;align-items:center;font-size:13.5px;padding:8px 10px;border-radius:10px;background:var(--card2)}
   .tr.t4{grid-template-columns:1.3fr 1fr 1fr 38px}
+  .tr.t4d{grid-template-columns:1fr 1.3fr 1fr .7fr}
+  .tr small.flow{display:block;color:var(--gold);font-size:11px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
   .tr span:not(:first-child){text-align:right}.tr.th{background:transparent;color:var(--muted);font-size:11.5px;font-weight:700;padding:2px 10px}
   .tr .x{width:30px;height:30px;font-size:15px}
   .accsel{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font:700 14px Inter}
@@ -555,6 +558,87 @@ const MT5 = (function(){
     });
     return d;
   }
+  /* ---- curvas vetoriais dos gráficos (saldo, equity, crescimento) ---- */
+  function extractPaths(lib,opList){
+    const O=lib.OPS, F=opList.fnArray, A=opList.argsArray;
+    const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];
+    let ctm=[1,0,0,1,0,0],stack=[],stroke=[0,0,0],fill=[0,0,0],cur=null;const out=[];
+    const col=a=>{if(typeof a[0]==='string'){const h=a[0].replace('#','');return [0,2,4].map(i=>parseInt(h.substr(i,2),16))}const s=[a[0],a[1],a[2]];return s.every(z=>z<=1)?s.map(v=>v*255):s};
+    for(let i=0;i<F.length;i++){const f=F[i],a=A[i];
+      if(f===O.save)stack.push([ctm,stroke,fill]);
+      else if(f===O.restore){const s=stack.pop();if(s){ctm=s[0];stroke=s[1];fill=s[2]}}
+      else if(f===O.transform)ctm=mul(ctm,a);
+      else if(f===O.setStrokeRGBColor)stroke=col(a);
+      else if(f===O.setFillRGBColor)fill=col(a);
+      else if(f===O.constructPath){const ops=a[0],c=a[1];let j=0;const pts=[];
+        const P=(x,y)=>pts.push([ctm[0]*x+ctm[2]*y+ctm[4],ctm[1]*x+ctm[3]*y+ctm[5]]);
+        for(const op of ops){
+          if(op===O.moveTo||op===O.lineTo){P(c[j],c[j+1]);j+=2}
+          else if(op===O.curveTo){P(c[j+4],c[j+5]);j+=6}
+          else if(op===O.curveTo2||op===O.curveTo3){P(c[j+2],c[j+3]);j+=4}
+          else if(op===O.rectangle){P(c[j],c[j+1]);P(c[j]+c[j+2],c[j+1]+c[j+3]);j+=4}}
+        cur=pts}
+      else if((f===O.stroke||f===O.closeStroke)&&cur){out.push({stroke:true,color:stroke,pts:cur});cur=null}
+      else if((f===O.fill||f===O.eoFill||f===O.fillStroke||f===O.eoFillStroke)&&cur){out.push({stroke:false,color:fill,pts:cur});cur=null}
+      else if(f===O.endPath)cur=null;
+    }
+    return out;
+  }
+  const toMs=s=>{const m=s.match(/(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/);return m?Date.UTC(+m[1],m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)):NaN};
+  const dayKey=ms=>new Date(ms).toISOString().slice(0,10);
+  function curves(paths,items,d){
+    if(!d.historyFrom||!d.reportDate)return null;
+    const near=(c,t)=>Math.hypot(c[0]-t[0],c[1]-t[1],c[2]-t[2])<45;
+    const lines=paths.filter(p=>p.stroke&&p.pts.length>=2);
+    const pick=(rgb,min)=>lines.filter(p=>near(p.color,rgb)&&p.pts.length>=min).sort((a,b)=>b.pts.length-a.pts.length)[0];
+    const bal=pick([99,161,235],20); if(!bal)return null;
+    const eq=pick([157,91,240],2), gr=pick([112,179,71],2);
+    const grids=lines.filter(p=>p.pts.length===2&&Math.abs(p.pts[0][1]-p.pts[1][1])<0.05&&Math.abs(p.pts[0][0]-p.pts[1][0])>200);
+    function calib(c){
+      const xs=c.pts.map(p=>p[0]),mx=Math.max(...xs);
+      const g=grids.filter(p=>{const gx=Math.max(p.pts[0][0],p.pts[1][0]);return gx>=mx-1&&gx<=mx+14});
+      const pairs=[];
+      items.forEach(it=>{const v=num(it.s);if(v==null||it.x<mx-2||it.x>mx+45)return;
+        let best=null;g.forEach(p=>{const dy=Math.abs(p.pts[0][1]-(it.y+2.7));if(dy<6&&(!best||dy<best.dy))best={dy,y:p.pts[0][1]}});
+        if(best&&!pairs.some(q=>Math.abs(q.y-best.y)<0.5))pairs.push({y:best.y,v})});
+      if(pairs.length<2)return null;
+      const n=pairs.length,sy=pairs.reduce((a,p)=>a+p.y,0),sv=pairs.reduce((a,p)=>a+p.v,0),
+        syy=pairs.reduce((a,p)=>a+p.y*p.y,0),syv=pairs.reduce((a,p)=>a+p.y*p.v,0);
+      const a=(n*syv-sy*sv)/(n*syy-sy*sy);if(!isFinite(a)||a===0)return null;return {a,b:(sv-a*sy)/n};
+    }
+    const t0=toMs(d.historyFrom),t1=toMs(d.reportDate);
+    const cb=calib(bal); if(!cb)return null;
+    const bx0=bal.pts[0][0],bx1=bal.pts[bal.pts.length-1][0];
+    const tOf=x=>t0+(x-bx0)/(bx1-bx0)*(t1-t0);
+    let B=bal.pts.map(p=>[tOf(p[0]),cb.a*p[1]+cb.b]);
+    const last=B[B.length-1][1]; let quality='ok';
+    if(d.balance!=null&&Math.abs(last-d.balance)>Math.max(5,Math.abs(d.balance)*0.01)){
+      if(Math.abs(last)>1){const f=d.balance/last;B=B.map(p=>[p[0],p[1]*f]);quality='ajustado'}else return null}
+    B=B.map(p=>[p[0],Math.round(p[1]*100)/100]);
+    let E=null; if(eq){const ce=calib(eq)||cb;E=eq.pts.map(p=>[tOf(p[0]),Math.round((ce.a*p[1]+ce.b)*100)/100])}
+    let G=null; if(gr){const cg=calib(gr);if(cg){const gx0=gr.pts[0][0],gx1=gr.pts[gr.pts.length-1][0];
+      G=gr.pts.map(p=>[t0+(p[0]-gx0)/(gx1-gx0)*(t1-t0),cg.a*p[1]+cg.b])}}
+    const at=(S,t)=>{if(!S||!S.length)return null;if(t<=S[0][0])return S[0][1];for(let i=1;i<S.length;i++)if(S[i][0]>=t){const p=S[i-1],q=S[i];return q[0]===p[0]?q[1]:p[1]+(q[1]-p[1])*(t-p[0])/(q[0]-p[0])}return S[S.length-1][1]};
+    // fechamento diário
+    const DAY=864e5, first=B.find(p=>Math.abs(p[1])>0.5); if(!first)return null;
+    const daily=[]; let prevC=at(B,Math.floor(first[0]/DAY)*DAY-1), prevG=G?at(G,Math.floor(first[0]/DAY)*DAY-1):null;
+    for(let ds=Math.floor(first[0]/DAY)*DAY; ds<=t1; ds+=DAY){
+      const te=Math.min(ds+DAY-1,t1), close=at(B,te), g=G?at(G,te):null, delta=close-prevC;
+      let profit=delta;
+      if(prevC>0.5&&G&&g!=null&&prevG!=null)profit=prevC*((1+g/100)/(1+prevG/100)-1); else if(prevC<=0.5)profit=0;
+      let flow=delta-profit; if(Math.abs(flow)<Math.max(2,Math.abs(close)*0.002)){profit=delta;flow=0}
+      const netDep=(d.deposits||0)-(d.withdrawals||0); if(flow&&Math.abs(flow-netDep)<Math.max(2,Math.abs(netDep)*0.002))flow=netDep;
+      if(Math.abs(profit)<0.5)profit=0;
+      const eqs=E?E.filter(p=>p[0]>=ds&&p[0]<=te).map(p=>p[1]).concat([at(E,ds),at(E,te)]).filter(v=>v!=null):[];
+      daily.push({d:dayKey(ds),close:+close.toFixed(2),profit:+profit.toFixed(2),flow:+flow.toFixed(2),
+        pct:prevC>0.5?+(profit/prevC*100).toFixed(2):null,eqMin:eqs.length?+Math.min(...eqs).toFixed(2):null});
+      prevC=close; prevG=g;
+    }
+    // série compacta: [minutos desde t0, saldo, equity]
+    const firstIdx=Math.max(0,B.indexOf(first));
+    const series=B.slice(firstIdx).map(p=>[Math.round((p[0]-t0)/6e4),p[1],E?Math.round(at(E,p[0])*100)/100:null]);
+    return {t0:d.historyFrom,quality,series,daily};
+  }
   let libP=null;
   function loadLib(){
     if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
@@ -571,7 +655,9 @@ const MT5 = (function(){
     let title='';try{const m=await pdf.getMetadata();title=(m.info&&m.info.Title)||''}catch(e){}
     const pg=await pdf.getPage(1); const tc=await pg.getTextContent();
     const items=tc.items.map(i=>({x:i.transform[4],y:i.transform[5],s:i.str}));
-    return parse(items,title);
+    const d=parse(items,title);
+    try{const ol=await pg.getOperatorList();const c=curves(extractPaths(lib,ol),items.map(i=>({...i,s:i.s.trim()})).filter(i=>i.s),d);if(c)d.curve=c}catch(e){console.warn('curvas',e)}
+    return d;
   }
   return {parse,readFile,num};
 })();
@@ -667,6 +753,48 @@ const MT5 = (function(){
           (pts.length<=12?'<text x="'+(x+bw/2)+'" y="'+(p.v>=0?y-5:y+h+12)+'" text-anchor="middle" class="ax">'+(Math.abs(p.v)>=1000?(p.v/1000).toFixed(1)+'k':Math.round(p.v))+'</text><text x="'+(x+bw/2)+'" y="'+(H-6)+'" text-anchor="middle" class="ax">'+p.l.slice(0,5)+'</text>':'');}).join('')+'</svg>';
   }
 
+  function timeChart(c,cur){
+    const t0=Date.parse(c.t0.replace(' ','T')+':00Z'), S=c.series; if(!S||S.length<2)return '';
+    const pts=S.map(p=>({t:t0+p[0]*6e4,b:p[1],e:p[2]}));
+    const W=600,H=200,PL=72,PR=10,PT=12,PB=24;
+    const vals=pts.flatMap(p=>[p.b,p.e]).filter(v=>v!=null);let mn=Math.min(...vals),mx=Math.max(...vals);
+    const pad=(mx-mn)*0.08||1; mn-=pad; mx+=pad;
+    const ta=pts[0].t,tb=pts[pts.length-1].t;
+    const X=t=>PL+(t-ta)/((tb-ta)||1)*(W-PL-PR), Y=v=>H-PB-(v-mn)/(mx-mn)*(H-PT-PB);
+    const path=k=>pts.filter(p=>p[k]!=null).map((p,i)=>(i?'L':'M')+X(p.t).toFixed(1)+' '+Y(p[k]).toFixed(1)).join(' ');
+    const bp=path('b'), area=bp+' L'+X(tb)+' '+(H-PB)+' L'+X(ta)+' '+(H-PB)+' Z';
+    // marcas de dia
+    const DAY=864e5; let ticks='';const nd=Math.ceil((tb-ta)/DAY);const every=Math.max(1,Math.ceil(nd/8));
+    for(let d=Math.ceil(ta/DAY)*DAY,i=0;d<=tb;d+=DAY,i++){if(i%every)continue;const x=X(d);
+      ticks+='<line x1="'+x+'" x2="'+x+'" y1="'+PT+'" y2="'+(H-PB)+'" stroke="#ffffff10"/><text x="'+x+'" y="'+(H-6)+'" text-anchor="middle" class="ax">'+new Date(d).toISOString().slice(8,10)+'/'+new Date(d).toISOString().slice(5,7)+'</text>'}
+    const yl=[mx-pad,(mn+mx)/2,mn+pad].map(v=>'<text x="4" y="'+(Y(v)+4)+'" class="ax">'+n2(v)+'</text><line x1="'+PL+'" x2="'+(W-PR)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#ffffff0c"/>').join('');
+    return '<svg viewBox="0 0 '+W+' '+H+'" class="chart"><defs><linearGradient id="lg2" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F2C14E" stop-opacity=".3"/><stop offset="1" stop-color="#F2C14E" stop-opacity="0"/></linearGradient></defs>'+
+      yl+ticks+'<path d="'+area+'" fill="url(#lg2)"/>'+(pts.some(p=>p.e!=null)?'<path d="'+path('e')+'" fill="none" stroke="#B678FF" stroke-width="1.6" stroke-dasharray="4 3"/>':'')+
+      '<path d="'+bp+'" fill="none" stroke="#F2C14E" stroke-width="2.4" stroke-linejoin="round"/></svg>'+
+      '<div class="legend"><span><i style="background:#F2C14E"></i>Saldo</span>'+(pts.some(p=>p.e!=null)?'<span><i style="background:#B678FF"></i>Equity (com operações abertas)</span>':'')+'</div>';
+  }
+  function dailyHtml(r,cur){
+    const c=r.curve; if(!c||!c.daily||!c.daily.length)return '';
+    const D=c.daily, last31=D.slice(-31);
+    const tradingDays=D.filter(x=>Math.abs(x.profit)>=0.01), wins=tradingDays.filter(x=>x.profit>0);
+    const best=tradingDays.reduce((a,b)=>!a||b.profit>a.profit?b:a,null), worst=tradingDays.reduce((a,b)=>!a||b.profit<a.profit?b:a,null);
+    const sum=D.reduce((a,b)=>a+b.profit,0);
+    const fd=k=>{const [y,m,d]=k.split('-');return d+'/'+m};
+    const wd=k=>['dom','seg','ter','qua','qui','sex','sáb'][new Date(k+'T12:00:00Z').getUTCDay()];
+    let h='<div class="card" style="margin-bottom:16px"><h2>Evolução do capital <span class="cn">资金曲线</span></h2>'+timeChart(c,cur)+'</div>';
+    h+='<div class="card" style="margin-bottom:16px"><h2>Resultado por dia <span class="cn">每日盈亏</span></h2>'+
+      '<div class="kgrid" style="margin-bottom:12px">'+
+        '<div class="kpi"><small>Dias com resultado</small><b>'+tradingDays.length+'</b><small style="margin:4px 0 0">'+wins.length+' positivo(s)</small></div>'+
+        '<div class="kpi"><small>Média por dia operado</small><b class="'+cls(sum)+'">'+(tradingDays.length?sgn(sum/tradingDays.length,cur):'—')+'</b></div>'+
+        '<div class="kpi"><small>Melhor dia</small><b class="pos">'+(best?sgn(best.profit,cur):'—')+'</b><small style="margin:4px 0 0">'+(best?fd(best.d):'')+'</small></div>'+
+        (worst&&worst.profit<0?'<div class="kpi"><small>Pior dia</small><b class="neg">'+sgn(worst.profit,cur)+'</b><small style="margin:4px 0 0">'+fd(worst.d)+'</small></div>':'')+
+      '</div>'+barChart(last31.map(x=>({l:fd(x.d),v:x.profit})))+
+      '<div class="tbl" style="margin-top:12px"><div class="tr th t4d"><span>Dia</span><span>Saldo no fim do dia</span><span>Resultado</span><span>%</span></div>'+
+      last31.slice().reverse().map(x=>'<div class="tr t4d"><span>'+fd(x.d)+' <small class="cn">'+wd(x.d)+'</small></span><span>'+n2(x.close)+
+        (x.flow?'<small class="flow">'+(x.flow>0?'depósito +':'saque ')+n2(x.flow)+'</small>':'')+'</span><span class="'+cls(x.profit)+'">'+(x.profit>0?'+':'')+n2(x.profit)+'</span><span class="'+cls(x.pct)+'">'+(x.pct==null?'—':pc(x.pct))+'</span></div>').join('')+
+      '</div><div class="hint" style="margin-top:8px">Valores lidos do gráfico de saldo do relatório (pontos a cada ~2h; precisão de ~US$ 1). Depósitos e saques são separados do resultado pelo gráfico de crescimento.'+(c.quality!=='ok'?' Escala ajustada pelo saldo final.':'')+(D.length>31?' Mostrando os últimos 31 dias.':'')+'</div></div>';
+    return h;
+  }
   // ---- painel ----
   function renderDash(){
     const accs=accounts();
@@ -698,7 +826,7 @@ const MT5 = (function(){
       kpi('Depósitos',money(r.deposits,cur),'',r.depositsCount!=null?r.depositsCount+' depósito(s)':'')+kpi('Saques',money(r.withdrawals,cur),'',r.withdrawalsCount!=null?r.withdrawalsCount+' saque(s)':'')+
       kpi('Atividade de trading',pc(r.activity))+kpi('Swaps + comissões',money((r.swaps||0)+(r.commissions||0),cur))+
       '</div>'+(winShare!=null?'<div class="hint" style="margin-top:14px">Lucro bruto × perda bruta</div><div class="bar" style="margin-top:6px"><i style="width:'+winShare+'%;background:var(--green)"></i><i style="width:'+(100-winShare)+'%;background:var(--danger)"></i></div><div class="hint">'+pc(winShare)+' do volume financeiro foi de ganhos</div>':'')+'</div>';
-    h+='<div class="card" style="margin-bottom:16px"><h2>Evolução do saldo <span class="cn">余额走势</span></h2>'+lineChart(list.map(x=>({l:fdate(x.reportDate),v:x.balance})),cur)+'</div>';
+    if(r.curve)h+=dailyHtml(r,cur); else h+='<div class="card" style="margin-bottom:16px"><h2>Evolução do saldo <span class="cn">余额走势</span></h2>'+lineChart(list.map(x=>({l:fdate(x.reportDate),v:x.balance})),cur)+'</div>';
     if(list.length>1)h+='<div class="card" style="margin-bottom:16px"><h2>Lucro por importação <span class="cn">每周利润</span></h2>'+barChart(list.slice(1).map(x=>({l:fdate(x.reportDate),v:x.weekProfit||0})))+'</div>';
     if(months.length)h+='<div class="card" style="margin-bottom:16px"><h2>Resultado por mês <span class="cn">月度</span></h2><div class="tbl"><div class="tr th"><span>Mês</span><span>Ganho</span><span>Resultado</span></div>'+
       months.map(k=>{const m=r.monthly[k];const [y,mm]=k.split('-');return '<div class="tr"><span>'+MN[+mm-1]+'/'+y+'</span><span class="'+cls(m.pct)+'">'+pc(m.pct)+'</span><span class="'+cls(m.profit)+'">'+(m.profit==null?'—':sgn(m.profit,cur))+'</span></div>'}).join('')+
