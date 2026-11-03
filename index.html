@@ -8,6 +8,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Forex Split">
 <title>Forex Split · 利润分配</title>
+<script>
+(function(){var k=null;try{var m=location.hash.match(/[#&]v=([A-Za-z0-9_-]{30,})/);
+  if(m){k=m[1];localStorage.setItem('fxsplit_viewKey',JSON.stringify(k))}
+  else if(!localStorage.getItem('fxsplit_ghToken')||localStorage.getItem('fxsplit_ghToken')==='""'){var s=localStorage.getItem('fxsplit_viewKey');if(s)k=JSON.parse(s)}}catch(e){}
+  window.VIEWKEY=k;if(k)document.documentElement.classList.add('viewmode');})();
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C8102E'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23F2C14E' font-family='sans-serif' font-weight='700'%3E%E5%88%A9%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -187,6 +193,15 @@
   }
   .btns{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .btn{min-width:0}
+  .viewmode nav.tabs,.viewmode #v-calc,.viewmode #v-cfg,.viewmode #v-hist{display:none!important}
+  .viewmode body{padding-bottom:calc(env(safe-area-inset-bottom) + 20px)}
+  .viewbadge{display:inline-flex;align-items:center;gap:6px;background:#ffffff10;color:var(--muted);border-radius:10px;font:700 12.5px Inter;padding:8px 10px;white-space:nowrap}
+  .hacts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .imprt.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+  #viewStatus a{color:var(--gold)}
+  .steps{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13.5px;margin-bottom:12px}
+  .steps ol{margin:8px 0 0;padding-left:20px;line-height:1.6}.steps a{color:var(--gold);word-break:break-all}
+  details summary{list-style:revert}
 </style>
 </head>
 <body>
@@ -260,6 +275,7 @@
     <div id="dash" class="dgrid"></div>
     <div class="dropov" id="dropov"><div>📄 Solte o PDF do relatório aqui</div></div>
   </section>
+  <div class="modal" id="shareModal"><div class="card"></div></div>
   <div class="modal" id="impModal"><div class="card">
     <h2>Importar relatório MT5 <span class="cn">导入报告</span></h2>
     <div id="impMsg"></div><div id="preview"></div>
@@ -709,7 +725,7 @@ const MT5 = (function(){
   if(!window.FX)return;
   const {store,toast}=window.FX;
   const $=s=>document.querySelector(s);
-  let reports=store.get('reports',[]);
+  let reports=window.VIEWKEY?[]:store.get('reports',[]);
   let selAcc=store.get('selAcc','');
   let pending=null;
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -721,7 +737,7 @@ const MT5 = (function(){
   const fdate=s=>{if(!s)return'—';const [d,t]=s.split(' ');const [y,m,dd]=d.split('-');return dd+'/'+m+'/'+y+(t?' '+t:'')};
   const MN=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
-  function save(){store.set('reports',reports)}
+  function save(){if(VIEW)return;store.set('reports',reports);schedulePublish()}
   const mapCur=c=>c==='USDT'?'USDT':(c==='BRL'?'BRL':'USD');
   // capital = depósitos − saques; lucro = lucro líquido total do relatório
   function fillFrom(r,silent){
@@ -747,7 +763,7 @@ const MT5 = (function(){
   }
   $('#pdfIn').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
   const ov=$('#dropov'), panelOn=()=>$('#v-panel').classList.contains('on');
-  window.addEventListener('dragover',e=>{if(!panelOn())return;e.preventDefault();ov.classList.add('on')});
+  window.addEventListener('dragover',e=>{if(!panelOn()||window.VIEWKEY)return;e.preventDefault();ov.classList.add('on')});
   ov.addEventListener('dragleave',e=>{e.preventDefault();ov.classList.remove('on')});
   ov.addEventListener('drop',e=>{e.preventDefault();ov.classList.remove('on');const f=e.dataTransfer.files[0];if(f)handleFile(f)});
   document.addEventListener('click',e=>{if(e.target.closest('[data-import]'))$('#pdfIn').click()});
@@ -839,9 +855,116 @@ const MT5 = (function(){
       '</div><div class="hint" style="margin-top:8px">Valores lidos do gráfico de saldo do relatório (pontos a cada ~2h; precisão de ~US$ 1). Depósitos e saques são separados do resultado pelo gráfico de crescimento.'+(c.quality!=='ok'?' Escala ajustada pelo saldo final.':'')+(D.length>31?' Mostrando os últimos 31 dias.':'')+'</div></div>';
     return h;
   }
+  /* ====== COMPARTILHAMENTO (somente leitura, dados criptografados no GitHub) ====== */
+  const VIEW=!!window.VIEWKEY;
+  const GH=(()=>{const h=location.hostname,gh=h.endsWith('.github.io');return {owner:gh?h.split('.')[0]:'MatheusMatos23',repo:gh?(location.pathname.split('/')[1]||'calc-forex'):'calc-forex',path:'data/painel.json'}})();
+  const B64={enc(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)},
+    dec(b){const s=atob(b.replace(/\s/g,''));const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u}};
+  const toUrl=s=>s.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''), fromUrl=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return s};
+  const newKey=()=>toUrl(B64.enc(crypto.getRandomValues(new Uint8Array(32))));
+  const importKey=k=>crypto.subtle.importKey('raw',B64.dec(fromUrl(k)),'AES-GCM',false,['encrypt','decrypt']);
+  async function encryptObj(obj,k){const iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await importKey(k),new TextEncoder().encode(JSON.stringify(obj)));
+    return {app:'forex-split',v:1,alg:'AES-GCM',iv:B64.enc(iv),ct:B64.enc(new Uint8Array(ct))}}
+  async function decryptObj(env,k){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:B64.dec(env.iv)},await importKey(k),B64.dec(env.ct));return JSON.parse(new TextDecoder().decode(pt))}
+  const apiUrl='https://api.github.com/repos/'+GH.owner+'/'+GH.repo+'/contents/'+GH.path;
+  const viewLink=k=>location.origin+location.pathname+'#v='+k;
+  // ---- administrador: publicar ----
+  let pubTimer=null, pubBusy=false;
+  function sharePayload(){
+    // só a importação mais recente de cada conta leva a curva diária (deixa o arquivo leve)
+    const latest={};reports.forEach(r=>{if(!latest[r.account]||r.reportDate>latest[r.account].reportDate)latest[r.account]=r});
+    return {updatedAt:new Date().toISOString(),reports:reports.map(r=>latest[r.account]===r?r:Object.assign({},r,{curve:undefined}))};
+  }
+  async function publish(manual){
+    const token=store.get('ghToken',''), key=store.get('shareKey','');
+    if(!token||!key||VIEW)return;
+    if(pubBusy){clearTimeout(pubTimer);pubTimer=setTimeout(()=>publish(manual),1500);return}
+    pubBusy=true; setShareStatus('Publicando…');
+    try{
+      const H={'Accept':'application/vnd.github+json','Authorization':'Bearer '+token};
+      const g=await fetch(apiUrl+'?ref=main',{headers:H,cache:'no-store'});
+      if(g.status===401)throw new Error('Token inválido ou expirado.');
+      let sha; if(g.ok)sha=(await g.json()).sha; else if(g.status!==404)throw new Error('GitHub respondeu '+g.status+' ao ler o arquivo.');
+      const env=await encryptObj(sharePayload(),key);
+      const body={message:'Atualiza painel compartilhado',content:B64.enc(new TextEncoder().encode(JSON.stringify(env))),branch:'main'};if(sha)body.sha=sha;
+      const p=await fetch(apiUrl,{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},H),body:JSON.stringify(body)});
+      if(!p.ok){const t=p.status===403||p.status===404?'O token não tem permissão de escrita (Contents: Read and write) neste repositório.':'GitHub respondeu '+p.status+'.';throw new Error(t)}
+      store.set('lastPub',new Date().toISOString()); store.set('pubError',''); setShareStatus(); if(manual!=='silent')toast('Painel compartilhado atualizado ✓');
+    }catch(e){store.set('pubError',String(e.message||e));setShareStatus();toast('Falha ao publicar o painel: '+(e.message||e))}
+    finally{pubBusy=false}
+  }
+  function schedulePublish(){if(VIEW||!store.get('ghToken',''))return;clearTimeout(pubTimer);pubTimer=setTimeout(()=>publish(),800)}
+  function setShareStatus(msg){const el=document.getElementById('shStatus');if(!el)return;
+    const lp=store.get('lastPub',''),err=store.get('pubError','');
+    el.innerHTML=msg?'<div class="warn ok">'+msg+'</div>':(lp?'<div class="warn ok">✓ Última publicação: '+new Date(lp).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})+'</div>':'')+'';
+    if(!msg&&err){el.innerHTML+='<div class="warn">'+esc(err)+'</div>'}}
+  function openShare(){
+    const m=document.getElementById('shareModal'),c=m.querySelector('.card');
+    let key=store.get('shareKey',''); if(!key){key=newKey();store.set('shareKey',key)}
+    const token=store.get('ghToken','');
+    c.innerHTML='<h2>Compartilhar painel <span class="cn">分享</span></h2>'+
+      '<p class="hint" style="margin-top:-6px">Quem receber o link vê <b>só o Painel</b>, sem importar, dividir ou apagar nada. Cada vez que você importa um relatório aqui, o painel deles atualiza sozinho.</p>'+
+      (token?
+        '<label class="f">Link de visualização</label><div class="inp" style="padding-right:6px"><input id="shLink" readonly value="'+esc(viewLink(key))+'" style="font-size:13px;font-weight:600"><button class="imprt" id="shCopy">Copiar</button></div>'+
+        '<div class="hint">Envie esse link aos sócios (WhatsApp, e-mail…). A chave que abre os dados vai dentro do link: não poste em lugar público.</div>'+
+        '<div id="shStatus" style="margin-top:12px"></div>'+
+        '<div class="btns"><button class="btn gold" id="shPub">↻ Publicar agora</button><button class="btn ghost" id="shClose">Fechar</button></div>'+
+        '<details style="margin-top:14px"><summary class="hint" style="cursor:pointer">Opções avançadas</summary>'+
+          '<div class="btns" style="margin-top:10px"><button class="btn ghost" id="shNew">Gerar novo link</button><button class="btn red" id="shOff">Remover token</button></div>'+
+          '<div class="hint">"Gerar novo link" corta o acesso de quem tem o link antigo. "Remover token" para de publicar a partir deste aparelho.</div>'+
+          '<label class="f" style="margin-top:12px">Usar o link de outro aparelho seu</label><div class="inp" style="padding-right:6px"><input id="shUse" placeholder="cole aqui o link de visualização" style="font-size:16px;font-weight:500"><button class="imprt" id="shUseB">Usar</button></div>'+
+        '</details>'
+      :
+        '<div class="steps"><b>Configuração (uma vez só):</b><ol>'+
+        '<li>Abra <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>'+
+        '<li>Nome: <i>forex-split</i> · Expiração: a que preferir</li>'+
+        '<li><b>Repository access</b> → <i>Only select repositories</i> → <b>'+esc(GH.repo)+'</b></li>'+
+        '<li><b>Permissions</b> → Repository permissions → <b>Contents: Read and write</b></li>'+
+        '<li>Gere o token, copie e cole abaixo</li></ol></div>'+
+        '<label class="f">Token do GitHub</label><div class="inp"><input id="shTok" type="password" autocomplete="off" placeholder="github_pat_…" style="font-size:16px;font-weight:500"></div>'+
+        '<div class="hint">O token fica salvo só neste aparelho e só tem acesso a este repositório.</div>'+
+        '<div id="shStatus" style="margin-top:12px"></div>'+
+        '<div class="btns"><button class="btn gold" id="shSave">Salvar e publicar</button><button class="btn ghost" id="shClose">Cancelar</button></div>');
+    m.classList.add('on'); setShareStatus(); m.onclick=e=>{if(e.target===m)m.classList.remove('on')};
+    const q=id=>document.getElementById(id);
+    q('shClose').onclick=()=>m.classList.remove('on');
+    if(q('shSave'))q('shSave').onclick=async()=>{const t=q('shTok').value.trim();if(t.length<20){toast('Cole o token completo');return}
+      store.set('ghToken',t);store.set('pubError','');await publish();if(!store.get('pubError','')){openShare()}else{store.set('ghToken','');openShare()}};
+    if(q('shCopy'))q('shCopy').onclick=async()=>{const i=q('shLink');try{await navigator.clipboard.writeText(i.value);toast('Link copiado ✓')}catch(e){i.select();toast('Selecione e copie o link')}};
+    if(q('shPub'))q('shPub').onclick=()=>{store.set('pubError','');publish()};
+    if(q('shNew'))q('shNew').onclick=e=>{if(e.target.dataset.arm!=='1'){e.target.dataset.arm='1';e.target.textContent='Toque de novo p/ confirmar';return}
+      store.set('shareKey',newKey());store.set('pubError','');publish().then(openShare)};
+    if(q('shOff'))q('shOff').onclick=e=>{if(e.target.dataset.arm!=='1'){e.target.dataset.arm='1';e.target.textContent='Toque de novo p/ confirmar';return}
+      store.set('ghToken','');openShare()};
+    if(q('shUseB'))q('shUseB').onclick=()=>{const m2=(q('shUse').value||'').match(/v=([A-Za-z0-9_-]{30,})/);if(!m2){toast('Link inválido');return}
+      store.set('shareKey',m2[1]);toast('Chave atualizada');store.set('pubError','');publish().then(openShare)};
+  }
+  // ---- visualizador: buscar e decifrar ----
+  let remoteAt=null, remoteErr=null;
+  async function fetchRemote(){
+    try{
+      let env=null;
+      try{const r=await fetch(apiUrl+'?ref=main',{headers:{'Accept':'application/vnd.github.raw+json'},cache:'no-store'});
+        if(r.status===404)throw Object.assign(new Error('O painel ainda não foi publicado.'),{final:true});
+        if(r.ok)env=await r.json()}catch(e){if(e.final)throw e}
+      if(!env){const r=await fetch('https://raw.githubusercontent.com/'+GH.owner+'/'+GH.repo+'/main/'+GH.path+'?t='+Date.now(),{cache:'no-store'});
+        if(!r.ok)throw new Error(r.status===404?'O painel ainda não foi publicado.':'Não foi possível buscar os dados (sem internet?).');env=await r.json()}
+      let data; try{data=await decryptObj(env,window.VIEWKEY)}catch(e){throw new Error('Este link não é mais válido. Peça um link novo.')}
+      remoteErr=null;
+      if(data.updatedAt!==remoteAt){remoteAt=data.updatedAt;reports=data.reports||[];renderDash()} else renderViewStatus();
+    }catch(e){remoteErr=e.message||String(e);if(!reports.length)renderDash();else renderViewStatus()}
+  }
+  function renderViewStatus(){const el=document.getElementById('viewStatus');if(!el)return;
+    el.innerHTML=(remoteErr?'<span class="neg">'+esc(remoteErr)+'</span> · ':'')+(remoteAt?'Atualizado em '+new Date(remoteAt).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'')+' · <a href="#" id="viewRef">↻ atualizar</a>';
+    const ft=document.getElementById('viewFoot');if(!ft){const d=document.createElement('div');d.id='viewFoot';d.className='hint';d.style.cssText='text-align:center;margin:22px 0 8px;opacity:.6';
+      d.innerHTML='Somente visualização · <a href="#" style="color:inherit">abrir app completo neste aparelho</a>';
+      d.querySelector('a').onclick=e=>{e.preventDefault();try{localStorage.removeItem('fxsplit_viewKey')}catch(_){}location.href=location.pathname};document.querySelector('.wrap').appendChild(d)}
+    const a=document.getElementById('viewRef');if(a)a.onclick=e=>{e.preventDefault();a.textContent='atualizando…';fetchRemote()}}
   // ---- painel ----
   function renderDash(){
     const accs=accounts();
+    if(!accs.length&&VIEW){$('#dash').innerHTML='';$('#dashHero').innerHTML='<div class="card hero"><div class="empty-hero"><div style="font-size:34px">📊</div><h2 style="justify-content:center;margin:8px 0 6px">Painel compartilhado <span class="cn">仪表板</span></h2><div class="hint">'+(remoteErr?'<span class="neg">'+esc(remoteErr)+'</span>':(remoteAt?'Nenhum relatório publicado ainda.':'Carregando dados…'))+'</div></div></div>';return}
     if(!accs.length){$('#dash').innerHTML='';$('#dashHero').innerHTML='<div class="card hero"><div class="empty-hero"><div style="font-size:34px">📄</div><h2 style="justify-content:center;margin:8px 0 6px">Painel da conta <span class="cn">仪表板</span></h2><div class="hint">Importe o relatório PDF do MetaTrader 5 (Relatório → compartilhar/salvar como PDF).<br>Toda semana, importe o novo relatório: o painel atualiza e já preenche a calculadora.</div><button class="imprt" data-import>📄 Importar relatório</button><div class="hint" style="margin-top:10px">ou arraste o PDF para esta página</div></div></div>';$('#dash').innerHTML='<div class="card span2">'+backupHtml()+'</div>';bindBackup();return}
     if(!accs.includes(selAcc))selAcc=accs[0];
     const list=withDeltas(series(selAcc)); const r=list[list.length-1]; const cur=r.currency;
@@ -853,14 +976,16 @@ const MT5 = (function(){
       '<div class="hhead"><div><h2 style="justify-content:flex-start"><span>'+(accs.length>1?'<select id="accSel" class="accsel">'+accs.map(a=>'<option'+(a===selAcc?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select>':'Conta '+esc(r.account))+
         (r.type?' <span class="pill">'+esc(r.type)+'</span>':'')+'</span></h2>'+
       '<div class="hint" style="margin:0">'+esc(r.broker||'')+' · último relatório: '+fdate(r.reportDate)+' · '+list.length+' importaç'+(list.length>1?'ões':'ão')+'</div></div>'+
-      '<button class="imprt" data-import>📄 Importar<span class="lg"> relatório</span></button></div>'+
+      (VIEW?'<div class="hacts"><span class="viewbadge">👁 Visualização</span></div></div>':
+       '<div class="hacts"><button class="imprt ghost" id="bShare">🔗 Compartilhar</button><button class="imprt" data-import>📄 Importar<span class="lg"> relatório</span></button></div></div>')+
+      (VIEW?'<div class="hint" id="viewStatus" style="margin:-6px 0 12px"></div>':'')+
       '<div class="kpis">'+
         '<div class="kpi big"><small>'+(r.prev?'Lucro desde a última importação ('+fdate(r.prev.reportDate).slice(0,10)+')':'Lucro total (1ª importação)')+' · 本周利润</small><b class="'+cls(wk)+'" style="'+(wk>0?'color:var(--green)':'')+'">'+sgn(wk,cur)+'</b>'+
         (r.prev&&r.netFlow?'<small style="margin:4px 0 0">Movimentação no período (depósitos − saques): '+sgn(r.netFlow,cur)+'</small>':'')+'</div>'+
         kpi('Saldo · 余额',money(r.balance,cur),'',r.equity!=null&&Math.abs(r.equity-r.balance)>0.005?'Equity '+money(r.equity,cur):'')+
         kpi('Lucro líquido total',sgn(r.total,cur),cls(r.total))+
       '</div>'+
-      '<div class="hbtns"><div class="btns"><button class="btn gold" id="bTotal">➗ Dividir lucro total</button><button class="btn ghost" id="bSplit" '+(r.prev&&wk>0?'':'disabled style="opacity:.5"')+'>Só o da semana</button></div></div></div>';
+      (VIEW?'</div>':'<div class="hbtns"><div class="btns"><button class="btn gold" id="bTotal">➗ Dividir lucro total</button><button class="btn ghost" id="bSplit" '+(r.prev&&wk>0?'':'disabled style="opacity:.5"')+'>Só o da semana</button></div></div></div>');
     $('#dashHero').innerHTML=h; h='';
     h+='<div class="card span2"><h2>Indicadores <span class="cn">指标</span></h2><div class="kgrid wide">'+
       kpi('Ganho (crescimento)',pc(r.gain),cls(r.gain))+kpi('Drawdown máximo',pc(r.maxDD),r.maxDD>20?'neg':'')+
@@ -879,9 +1004,11 @@ const MT5 = (function(){
       months.map(k=>{const m=r.monthly[k];const [y,mm]=k.split('-');return '<div class="tr"><span>'+MN[+mm-1]+'/'+y+'</span><span class="'+cls(m.pct)+'">'+pc(m.pct)+'</span><span class="'+cls(m.profit)+'">'+(m.profit==null?'—':sgn(m.profit,cur))+'</span></div>'}).join('')+
       '</div><div class="hint">Valores do relatório (o MT5 arredonda o resultado mensal, ex.: 1.68k).</div></div>';
     h+='<div class="card"><h2>Importações <span class="cn">记录</span></h2><div class="tbl"><div class="tr th t4"><span>Data</span><span>Saldo</span><span>Lucro período</span><span></span></div>'+
-      list.slice().reverse().map(x=>'<div class="tr t4"><span>'+fdate(x.reportDate)+'</span><span>'+n2(x.balance)+'</span><span class="'+cls(x.weekProfit)+'">'+(x.weekProfit==null?'—':(x.weekProfit>0?'+':'')+n2(x.weekProfit))+'</span><span><button class="x" data-rm="'+esc(x.id)+'" title="Excluir">×</button></span></div>').join('')+'</div>'+backupHtml()+'</div></div>';
+      list.slice().reverse().map(x=>'<div class="tr t4"><span>'+fdate(x.reportDate)+'</span><span>'+n2(x.balance)+'</span><span class="'+cls(x.weekProfit)+'">'+(x.weekProfit==null?'—':(x.weekProfit>0?'+':'')+n2(x.weekProfit))+'</span><span>'+(VIEW?'':'<button class="x" data-rm="'+esc(x.id)+'" title="Excluir">×</button>')+'</span></div>').join('')+'</div>'+(VIEW?'':backupHtml())+'</div></div>';
     $('#dash').innerHTML=h;
     const sel=$('#accSel'); if(sel)sel.onchange=e=>{selAcc=e.target.value;store.set('selAcc',selAcc);renderDash()};
+    if(VIEW){renderViewStatus();return}
+    $('#bShare').onclick=openShare;
     $('#bTotal').onclick=()=>fillFrom(r,false);
     $('#bSplit').onclick=()=>{if(!(r.prev&&wk>0))return;
       window.FX.loadSplit({cur:mapCur(cur),capital:r.prev.balance,lucro:wk,src:'Lucro de '+fdate(r.prev.reportDate).slice(0,10)+' a '+fdate(r.reportDate).slice(0,10)+' (conta '+r.account+')'});};
@@ -902,6 +1029,9 @@ const MT5 = (function(){
       catch(e){toast('Arquivo de backup inválido')}};
   }
   renderDash();
+  if(VIEW){window.FX.go('panel');document.title='Painel · Forex Split';
+    const sub=document.querySelector('header p');if(sub)sub.innerHTML='外汇利润分配 · Painel compartilhado';
+    fetchRemote();setInterval(fetchRemote,180000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)fetchRemote()})}
 })();
 </script>
 
